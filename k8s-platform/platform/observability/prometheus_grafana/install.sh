@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAMESPACE="observability"
+ENVIRONMENT="${1:-local}" 
+
+if [[ ! "$ENVIRONMENT" =~ ^(local|aws|gcp|azure)$ ]]; then
+    echo "Environment doesn't exist"
+    echo "Usage: $0 [local|aws|gcp|azure]"
+    exit 1
+fi
+
+VALUES_FILES=(
+  "--values ${SCRIPT_DIR}/values-base.yaml"
+  "--values ${SCRIPT_DIR}/values-${ENVIRONMENT}.yaml"
+)
+
+echo "Adding helm prometheus repository..." >&2
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update 
+
+echo "Installing prometheus stack..." >&2
+
+helm upgrade --install prometheus \
+    prometheus-community/kube-prometheus-stack \
+    --namespace ${NAMESPACE} \
+    --create-namespace \
+    ${VALUES_FILES[@]} \
+    --wait
+
+echo "Successfully installed prometheus" >&2
+
+GRAFANA_PASSWORD=$(kubectl get secret --namespace ${NAMESPACE} prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+
+SECRETS_DIR=${SCRIPT_DIR}/../../../.secrets
+mkdir -p ${SECRETS_DIR}
+echo "Grafana access: " 
+echo "Username: admin " > ${SECRETS_DIR}/grafana_username.txt
+echo "Password: ${GRAFANA_PASSWORD}" > ${SECRETS_DIR}/grafana_password.txt
+
+echo "Grafana access: " 
+echo "Username: admin" 
+echo "Password: ${GRAFANA_PASSWORD}" 
+echo "Run kubectl port-forward -n ${NAMESPACE} svc/prometheus-grafana 3000:80"
+echo "then http://localhost:3000" 
+
+echo "Prometheus access: " 
+echo "Run kubectl port-forward -n ${NAMESPACE} svc/prometheus-kube-prometheus-prometheus 9090:9090"
+echo "then http://localhost:9090" 
+
+echo "AlertManager access: " 
+echo "Run kubectl port-forward -n ${NAMESPACE} svc/prometheus-kube-prometheus-prometheus 9093:9093"
+echo "then http://localhost:9093" 
+
+echo "Waiting for all pods to be ready..."
+kubectl wait --for=condition=ready pod \
+  -l "release=prometheus" \
+  -n ${NAMESPACE} \
+  --timeout=300s
+echo "Ready"

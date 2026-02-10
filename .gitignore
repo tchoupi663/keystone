@@ -1,0 +1,13 @@
+secrets
+/secrets
+.secrets
+.secrets/
+
+TODO
+TODO/
+todo*
+
+.env
+.env/
+
+.DS_Store
