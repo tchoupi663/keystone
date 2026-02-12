@@ -1,0 +1,69 @@
+# --- Local Development Overrides ---
+# These settings are optimized for lightweight environments like Minikube, Kind, or Docker Desktop.
+
+prometheus:
+  prometheusSpec:
+    # Reduce retention to save disk space on your laptop
+    retention: 7d
+    retentionSize: "5GB"
+
+    # Minimal resource requests to ensure it fits on a laptop for local development
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # Disable Persistent Volume requirements.
+    # Data will only survive as long as the pod is running.
+    # Good only for testing
+    storageSpec: {}
+    # Example of persistent storage configuration:
+    # storageSpec:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       storageClassName: standard # Adjust based on your cloud provider (e.g. gp2 on AWS)
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 50Gi
+
+grafana:
+  # Simple admin password for local use only
+  adminPassword: "admin"
+
+  # Disable persistence for Grafana dashboards/users
+  persistence:
+    enabled: false
+
+  # Grafana INI configuration overrides
+  grafana.ini:
+    # Allow anonymous access (no login required) for convenience
+    auth.anonymous:
+      enabled: true
+      org_role: Admin
+
+alertmanager:
+  alertmanagerSpec:
+    # Disable persistence for AlertManager state
+    storage: {}
+    # Example for persistent storage:
+    # storage:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       storageClassName: standard
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 10Gi
+
+    # Minimal resources for AlertManager
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi

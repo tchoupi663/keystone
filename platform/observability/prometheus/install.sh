@@ -17,12 +17,15 @@ VALUES_FILES=(
   "--values ${SCRIPT_DIR}/values-${ENVIRONMENT}.yaml"
 )
 
-echo "Adding helm prometheus repository..." >&2
+echo "Installing prometheus stack (prometheus, grafana, promtail)..." >&2
+
+helm uninstall -n ${NAMESPACE} prometheus
+helm uninstall -n ${NAMESPACE} promtail
+
+sleep 30
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update 
-
-echo "Installing prometheus stack..." >&2
 
 helm upgrade --install prometheus \
     prometheus-community/kube-prometheus-stack \
@@ -31,7 +34,12 @@ helm upgrade --install prometheus \
     ${VALUES_FILES[@]} \
     --wait
 
-echo "Successfully installed prometheus" >&2
+helm upgrade --install promtail grafana/promtail \
+  --namespace ${NAMESPACE} \
+  --set "config.clients[0].url=http://loki-gateway.${NAMESPACE}.svc.cluster.local/loki/api/v1/push" \
+  --values ${SCRIPT_DIR}/promtail-values-${ENVIRONMENT}.yaml
+
+echo "Successfully installed prometheus stack (prometheus, grafana, promtail)" >&2
 
 GRAFANA_PASSWORD=$(kubectl get secret --namespace ${NAMESPACE} prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
 

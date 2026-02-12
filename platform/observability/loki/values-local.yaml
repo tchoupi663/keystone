@@ -1,0 +1,90 @@
+# --- Write Components (Ingesters, Distributors) ---
+write:
+  # Number of replicas for the write path.
+  replicas: 2
+  
+  # Affinity settings define where pods can be scheduled.
+  # {} means no restrictions (good for single-node setups like Minikube/Docker Desktop).
+  # In production, you'd want anti-affinity to spread pods across nodes.
+  affinity: {} 
+  
+  readinessProbe:
+    # Time to wait before checking if the pod is ready.
+    # 30s gives the application time to initialize and join the ring.
+    initialDelaySeconds: 30 
+    timeoutSeconds: 5 
+
+# --- Read Components (Queriers, Query Frontends) ---
+read:
+  # Number of replicas for the read path.
+  replicas: 2
+  affinity: {}
+  readinessProbe:
+    initialDelaySeconds: 30
+
+# --- Backend Components (Ruler, Compactor, Index Gateway) ---
+backend:
+  # Backend components handle maintenance tasks and alerting.
+  # 1 replica is sufficient for local development.
+  replicas: 1
+  affinity: {}
+
+# --- Gateway (Nginx) ---
+gateway:
+  replicas: 1
+  enabled: true
+  
+  # Enable detailed access logs for debugging.
+  verboseLogging: true
+  
+  service:
+    # LoadBalancer exposes the gateway externally.
+    # On local k8s, this usually maps to localhost.
+    type: LoadBalancer
+  
+  # Ingress allows exposing the service via an Ingress Controller (e.g., Nginx Ingress).
+  # Disabled here as we are using LoadBalancer for simple local access.
+  ingress:
+    enabled: false
+
+# --- Caching (Memcached) ---
+# Caching speeds up queries but consumes significant RAM.
+# Disabled by default for local dev to save resources.
+
+chunksCache:
+  enabled: false  
+  memcached:
+    maxItemMemory: 2048 # MB of RAM for items
+  replicas: 2
+
+resultsCache:
+  enabled: false 
+  memcached:
+    maxItemMemory: 1024 # MB of RAM for items
+  replicas: 2
+
+# --- Bloom Filters (Experimental/Advanced) ---
+# Bloom filters accelerate search for high-cardinality logs.
+# Requires significant CPU/RAM. Disabled for local use.
+bloomPlanner: 
+  enabled: false
+  replicas: 1
+bloomBuilder:
+  enabled: false
+  replicas: 2
+
+# --- MinIO (Local Object Storage) ---
+# This sub-chart provides an S3-compatible object store within the cluster.
+# Strictly for local development/testing where real S3 is unavailable.
+minio:
+  enabled: true
+  
+  persistence:
+    size: 5Gi # Size of the Persistent Volume for MinIO
+    
+  # Buckets to creating automatically on startup
+  buckets:
+    - name: chunks # Stores the compressed log data
+    - name: ruler  # Stores alert rules
+    - name: admin  # Stores admin related data
+

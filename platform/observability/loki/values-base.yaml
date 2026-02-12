@@ -1,0 +1,60 @@
+loki:
+  # Disable multi-tenancy mode (no X-Scope-OrgID header required)
+  # Set to true if you want to isolate data between different teams/tenants
+  auth_enabled: false
+  
+  # Configuration for the schema of the index
+  schemaConfig:
+    configs:
+      - from: "2026-01-01"
+        store: tsdb         # The store used for the index (tsdb is recommended for new installations)
+        object_store: s3    # Where to store the chunks (S3 in this case)
+        schema: v13         # The schema version to use
+        index:
+          prefix: loki_index_ # Prefix for index files
+          period: 24h         # How often to rotate index tables
+
+  # Configuration for the ingester component (writes logs to storage)
+  ingester:
+    chunk_encoding: snappy # Compression algorithm for chunks (snappy is fast and balances size)
+
+  # Configuration for the querier component (retrieves logs)
+  querier:
+    # Maximum number of concurrent queries. 
+    # Default is 4. Increase if you have more CPU/RAM, decrease if OOMing.
+    max_concurrent: 1
+
+  # Enable the pattern ingester to extract patterns from log lines automatically
+  pattern_ingester:
+    enabled: true
+
+  # Limits applied to ingestion and querying
+  limits_config:
+    allow_structured_metadata: true # Enable structured metadata support
+    volume_enabled: true            # Enable volume (cardinality) limits
+    retention_period: 672h          # Global retention period (28 days)
+
+  # Common configuration shared across components
+  commonConfig:
+    replication_factor: 1 # How many copies of data to keep. Set to 1 for single-node/local, 3 for HA production.
+
+  # Storage configuration for chunks and rules
+  storage:
+    type: 's3' # Use S3-compatible storage
+    bucketNames:
+      chunks: chunks # Bucket for log chunks
+      ruler: ruler   # Bucket for alert rules
+      admin: admin   # Bucket for admin usage
+    s3:
+      endpoint: http://loki-minio.observability.svc:9000 # Endpoint for the local MinIO service
+      insecure: true                   # Set to true for HTTP (non-TLS) endpoints
+      access_key_id: "loki"            # Access key (MinIO username)
+      secret_access_key: "supersecret" # Secret key (MinIO password)
+      s3forcepathstyle: true           # Required for MinIO (uses path-style buckets instead of DNS-style)
+
+# Deployment mode:
+# - SimpleScalable: Groups services into Read, Write, and Backend targets. Easier to manage than Distributed.
+# - Distributed: Microservices mode with individual components (Ingester, Distributor, etc.). Complex but most scalable.
+# - SingleBinary: All components in one pod. Easiest for testing but not for high volume.
+deploymentMode: SimpleScalable
+

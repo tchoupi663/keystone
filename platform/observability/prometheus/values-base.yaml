@@ -1,0 +1,92 @@
+# --- Common settings shared across all environments ---
+
+# --- Prometheus Operator ---
+# The operator manages the lifecycle of Prometheus and Alertmanager instances.
+prometheusOperator:
+  enabled: true
+
+# --- Prometheus Server ---
+prometheus:
+  prometheusSpec:
+    # Duration to keep monitoring data.
+    # 15 days is standard for retention.
+    retention: 15d
+    
+    # Maximum size of storage to use.
+    # Prometheus deletes oldest data if this limit is reached.
+    retentionSize: "10GB"
+
+    # Default resource requests/limits for the Prometheus pods.
+    # Ensure these are high enough for your cluster's load.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    # --- Service Discovery ---
+    # Scrape any ServiceMonitor/PodMonitor irrespective of their labels
+    # If set to true, you must label your Monitors to match the prometheus selector.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    # List of additional scrape configs (e.g., external targets)
+    additionalScrapeConfigs: []
+    # Example for scraping an external target:
+    # - job_name: 'external-target'
+    #   scrape_interval: 30s
+    #   static_configs:
+    #     - targets: ['192.168.1.100:9100'] # IP of the external machine running node_exporter
+
+# --- Grafana (Visualization) ---
+grafana:
+  enabled: true
+  
+  # Default admin password. 
+  # Override this in values-prod.yaml or via secrets
+  adminPassword: "admin" 
+
+  # Plugins to auto-install on startup
+  plugins:
+    - grafana-piechart-panel # Useful for pie charts
+    - grafana-clock-panel    # Display current time/timezone
+
+  # Load standard dashboards provided by the chart
+  defaultDashboardsEnabled: true
+
+  # Pre-configure Data Sources so you don't have to add them manually
+  additionalDataSources:
+    # Loki (Logs)
+    - name: Loki
+      type: loki
+      access: proxy
+      # URL points to the Loki Gateway service in the cluster
+      url: http://loki-gateway.observability.svc.cluster.local
+      jsonData:
+        maxLines: 1000
+    
+    # Tempo (Traces) - Optional, only if Tempo is installed
+    - name: Tempo
+      type: tempo
+      url: http://tempo:3100
+      access: proxy
+      isDefault: false
+
+# --- AlertManager (Alert Routing) ---
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    # Data retention for alert history
+    retention: 120h
+
+# --- Node Exporter (Host Metrics) ---
+# Deployed as a DaemonSet to scrape node metrics (CPU, RAM, Disk, Net)
+nodeExporter:
+  enabled: true
+
+# --- Kube State Metrics (K8s API Metrics) ---
+# Generates metrics about the state of K8s objects (Deployments, Pods, etc.)
+kubeStateMetrics:
+  enabled: true
