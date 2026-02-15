@@ -59,6 +59,12 @@ install() {
     esac
 
     echo "Setup complete!" >&2
+
+    echo "Enabling ingress..." >&2
+    minikube addons enable ingress
+
+    sleep 10
+
     minikube status
 
 }

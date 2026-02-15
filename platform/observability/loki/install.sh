@@ -17,10 +17,6 @@ VALUES_FILES=(
   "--values ${SCRIPT_DIR}/values-${ENVIRONMENT}.yaml"
 )
 
-helm uninstall -n ${NAMESPACE} loki
-
-sleep 30
-
 echo "Installing loki and promtail (necessary for loki)..." >&2
 
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -30,4 +26,13 @@ helm repo update
 helm upgrade --install loki grafana/loki \
     --namespace ${NAMESPACE} \
     --create-namespace \
-    ${VALUES_FILES[@]}
+    ${VALUES_FILES[@]} \
+    --wait
+
+echo "Installing promtail..." >&2
+
+helm upgrade --install promtail grafana/promtail \
+  --namespace ${NAMESPACE} \
+  --values ${SCRIPT_DIR}/promtail-values.yaml \
+  --wait
+

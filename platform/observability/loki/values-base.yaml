@@ -58,3 +58,15 @@ loki:
 # - SingleBinary: All components in one pod. Easiest for testing but not for high volume.
 deploymentMode: SimpleScalable
 
+
+# --- Gateway Ingress ---
+gateway:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - host: loki.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []

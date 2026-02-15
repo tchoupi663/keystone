@@ -7,6 +7,15 @@ prometheusOperator:
 
 # --- Prometheus Server ---
 prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.local
+    paths:
+      - /
+    pathType: Prefix
+
   prometheusSpec:
     # Duration to keep monitoring data.
     # 15 days is standard for retention.
@@ -26,6 +35,16 @@ prometheus:
         cpu: 2000m
         memory: 4Gi
 
+    # Persistent Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi #increase as needed
+
     # --- Service Discovery ---
     # Scrape any ServiceMonitor/PodMonitor irrespective of their labels
     # If set to true, you must label your Monitors to match the prometheus selector.
@@ -43,6 +62,14 @@ prometheus:
 # --- Grafana (Visualization) ---
 grafana:
   enabled: true
+  
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts: 
+      - grafana.local
+    path: /
+
   
   # Default admin password. 
   # Override this in values-prod.yaml or via secrets
@@ -80,6 +107,33 @@ alertmanager:
   alertmanagerSpec:
     # Data retention for alert history
     retention: 120h
+    
+    # Persistent storage for AlertManager
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+  # AlertManager Configuration
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+      - match:
+          alertname: Watchdog
+        receiver: 'null'
+    receivers:
+    - name: 'null'
 
 # --- Node Exporter (Host Metrics) ---
 # Deployed as a DaemonSet to scrape node metrics (CPU, RAM, Disk, Net)

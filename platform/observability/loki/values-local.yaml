@@ -6,7 +6,8 @@ write:
   # Affinity settings define where pods can be scheduled.
   # {} means no restrictions (good for single-node setups like Minikube/Docker Desktop).
   # In production, you'd want anti-affinity to spread pods across nodes.
-  affinity: {} 
+  affinity: 
+    podAntiAffinity: null
   
   readinessProbe:
     # Time to wait before checking if the pod is ready.
@@ -18,7 +19,8 @@ write:
 read:
   # Number of replicas for the read path.
   replicas: 2
-  affinity: {}
+  affinity: 
+    podAntiAffinity: null
   readinessProbe:
     initialDelaySeconds: 30
 
@@ -27,7 +29,8 @@ backend:
   # Backend components handle maintenance tasks and alerting.
   # 1 replica is sufficient for local development.
   replicas: 1
-  affinity: {}
+  affinity: 
+    podAntiAffinity: null
 
 # --- Gateway (Nginx) ---
 gateway:
@@ -38,14 +41,13 @@ gateway:
   verboseLogging: true
   
   service:
-    # LoadBalancer exposes the gateway externally.
-    # On local k8s, this usually maps to localhost.
-    type: LoadBalancer
+    # ClusterIP exposes the gateway internally.
+    type: ClusterIP
   
   # Ingress allows exposing the service via an Ingress Controller (e.g., Nginx Ingress).
-  # Disabled here as we are using LoadBalancer for simple local access.
   ingress:
-    enabled: false
+    enabled: true
+
 
 # --- Caching (Memcached) ---
 # Caching speeds up queries but consumes significant RAM.
