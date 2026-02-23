@@ -11,3 +11,10 @@ todo*
 .env/
 
 .DS_Store
+
+.terraform
+.terraform*
+
+*.png
+*.jpg
+*.jpeg

@@ -7,7 +7,18 @@
 ![Grafana](https://img.shields.io/badge/grafana-%23F46800.svg?style=flat&logo=grafana&logoColor=white)
 ![Argocd](https://img.shields.io/badge/argo-%23EF7B4D.svg?style=flat&logo=argo&logoColor=white)
 
-Keystone is a comprehensive platform engineering project designed to manage Kubernetes infrastructure, observability, and deployments efficiently.
+Keystone is a modular, cloud-ready platform engineering project featuring a complete observability stack (Prometheus, Grafana, Loki), automated infrastructure management via Terraform, and flexible compute support (EKS/ECS) designed to streamline application deployments.
+
+## Project Status (WIP)
+
+| Component | Status | Description |
+| :--- | :--- | :--- |
+| **Observability** | ⚪️ In Progress | Prometheus, Grafana, Loki stacks setup via Terraform |
+| **Network (AWS)** | ⚪️ In Progress | VPC, Subnets, Gateways setup |
+| **Compute (AWS)** | ⚪️ Planned | EKS / ECS module configurations |
+| **Data (AWS/OS)** | ⚪️ Planned | Open-source and AWS RDS Terraform modules |
+| **Sample App** | ⚪️ Planned | API and Docker setup for deployment examples |
+| **GitOps** | ⚪️ Planned | ArgoCD implementations |
 
 ## Features
 
@@ -18,12 +29,12 @@ Keystone is a comprehensive platform engineering project designed to manage Kube
 
 ## Project Structure
 
-*   `apps/`: Example applications for testing. (WIP)
-*   `platform/`: Core platform components (Observability, GitOps, Autoscaling). (WIP)
-*   `kubernetes/`: General Kubernetes manifests. (WIP)
-*   `terraform/`: Infrastructure provisioning configurations. (WIP)
-*   `scripts/`: Automation and utility scripts. (WIP)
+*   `app/`: Application source code and container definitions.
+*   `data/`: Configuration for open-source datastores and managed services like AWS RDS.
+*   `infra/`: Layered AWS infrastructure defined in Terraform (Network, DNS, Observability, and Compute split into `eks/` and `ecs/` modules).
+*   `kubernetes/`: Base manifests and environment overlays for EKS deployments.
+*   `scripts/`: Automation and utility scripts.
 
 ## Getting Started
 
-Check the `makefile` for available commands or explore the `scripts/` directory for setup utilities.
+WIP
