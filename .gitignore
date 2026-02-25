@@ -14,6 +14,8 @@ todo*
 
 .terraform
 .terraform*
+*.tfstate
+*.tfstate.*
 
 *.png
 *.jpg
