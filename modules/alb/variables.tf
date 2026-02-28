@@ -98,28 +98,15 @@ variable "enable_http2" {
 # Listener Configuration
 # ──────────────────────────────────────────────
 
-variable "enable_https" {
-  description = "Enable the HTTPS listener on port 443 (requires certificate_arn)"
-  type        = bool
-  default     = false
-}
-
 variable "certificate_arn" {
-  description = "ARN of the ACM certificate for HTTPS listener (required when enable_https = true)"
+  description = "ARN of the ACM certificate for the HTTPS listener"
   type        = string
-  default     = null
 }
 
 variable "ssl_policy" {
   description = "SSL policy for the HTTPS listener"
   type        = string
   default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-}
-
-variable "http_to_https_redirect" {
-  description = "Redirect HTTP traffic to HTTPS (only effective when enable_https = true)"
-  type        = bool
-  default     = true
 }
 
 # ──────────────────────────────────────────────
@@ -196,4 +183,17 @@ variable "ingress_cidr_blocks" {
   description = "CIDR blocks allowed to reach the ALB (defaults to the entire internet)"
   type        = list(string)
   default     = ["0.0.0.0/0"]
+}
+
+# ──────────────────────────────────────────────
+# Host-based Routing Rules
+# ──────────────────────────────────────────────
+
+variable "listener_rules" {
+  description = "Map of host-based listener rules. Each rule forwards traffic to the default target group when the Host header matches. Key is the rule name."
+  type = map(object({
+    priority     = number
+    host_headers = list(string) # e.g. ["app.example.com", "*.example.com"]
+  }))
+  default = {}
 }

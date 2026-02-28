@@ -24,3 +24,5 @@ temp*
 *.jpeg
 
 audit
+
+certificate.*

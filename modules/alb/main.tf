@@ -1,6 +1,3 @@
-# ──────────────────────────────────────────────
-# Security Group — controls inbound access to the ALB
-# ──────────────────────────────────────────────
 
 resource "aws_security_group" "alb" {
   name_prefix = "${var.environment}-alb-"
@@ -43,9 +40,7 @@ resource "aws_security_group" "alb" {
   }
 }
 
-# ──────────────────────────────────────────────
-# Application Load Balancer
-# ──────────────────────────────────────────────
+
 
 resource "aws_lb" "this" {
   name               = "${var.project}-${var.environment}-alb"
@@ -73,9 +68,7 @@ resource "aws_lb" "this" {
   })
 }
 
-# ──────────────────────────────────────────────
-# Default Target Group — ECS services will register here
-# ──────────────────────────────────────────────
+
 
 resource "aws_lb_target_group" "default" {
   name                 = "${var.project}-${var.environment}-tg"
@@ -106,34 +99,19 @@ resource "aws_lb_target_group" "default" {
   }
 }
 
-# ──────────────────────────────────────────────
-# HTTP Listener (port 80)
-# ──────────────────────────────────────────────
-# When HTTPS is enabled and redirect is on: redirects to 443
-# Otherwise: forwards to the default target group
 
+# HTTP → always redirect to HTTPS
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
-  dynamic "default_action" {
-    for_each = var.enable_https && var.http_to_https_redirect ? [1] : []
-    content {
-      type = "redirect"
-      redirect {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
-  }
-
-  dynamic "default_action" {
-    for_each = var.enable_https && var.http_to_https_redirect ? [] : [1]
-    content {
-      type             = "forward"
-      target_group_arn = aws_lb_target_group.default.arn
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
     }
   }
 
@@ -142,13 +120,9 @@ resource "aws_lb_listener" "http" {
   })
 }
 
-# ──────────────────────────────────────────────
-# HTTPS Listener (port 443) — optional
-# ──────────────────────────────────────────────
 
+# HTTPS — default action is 404 (only matched hosts are forwarded)
 resource "aws_lb_listener" "https" {
-  count = var.enable_https ? 1 : 0
-
   load_balancer_arn = aws_lb.this.arn
   port              = 443
   protocol          = "HTTPS"
@@ -156,11 +130,39 @@ resource "aws_lb_listener" "https" {
   certificate_arn   = var.certificate_arn
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.default.arn
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "404 — unknown host"
+      status_code  = "404"
+    }
   }
 
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.environment}-https-listener"
+  })
+}
+
+
+# Host-based listener rules — forward traffic only for matching domains
+resource "aws_lb_listener_rule" "host_based" {
+  for_each = var.listener_rules
+
+  listener_arn = aws_lb_listener.https.arn
+  priority     = each.value.priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.default.arn
+  }
+
+  condition {
+    host_header {
+      values = each.value.host_headers
+    }
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rule-${each.key}"
   })
 }

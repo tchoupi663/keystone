@@ -86,6 +86,11 @@ output "alb_target_group_arn" {
 }
 
 output "alb_http_listener_arn" {
-  description = "ARN of the HTTP listener"
+  description = "ARN of the HTTP listener (redirects to HTTPS)"
   value       = module.alb.http_listener_arn
+}
+
+output "alb_https_listener_arn" {
+  description = "ARN of the HTTPS listener (default 404, host rules forward to targets)"
+  value       = module.alb.https_listener_arn
 }
