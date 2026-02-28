@@ -2,7 +2,7 @@ terraform {
   backend "s3" {
     bucket       = "keystone-infra-terraform-state"
     region       = "eu-north-1"
-    key          = "dev/infra/eu-north-1/infra.tfstate"
+    key          = "dev/bootstrap/eu-north-1/bootstrap.tfstate"
     use_lockfile = true
   }
 }

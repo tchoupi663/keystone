@@ -7,6 +7,8 @@ TODO
 TODO/
 todo*
 
+temp*
+
 .env
 .env/
 
@@ -20,3 +22,5 @@ todo*
 *.png
 *.jpg
 *.jpeg
+
+audit
