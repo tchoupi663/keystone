@@ -7,10 +7,12 @@ TODO
 TODO/
 todo*
 
-temp*
+temp.txt
 
 .env
 .env/
+.venv
+.venv/
 
 .DS_Store
 

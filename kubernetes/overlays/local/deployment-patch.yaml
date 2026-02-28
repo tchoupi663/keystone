@@ -1,6 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: sample-api
-spec:
-  replicas: 1 # Only run 1 replica locally to save laptop resources

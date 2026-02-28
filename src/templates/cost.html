@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Ongoing Cost</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fcfcfc;
+            color: #1d1d1f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 2.5rem;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            border: 1px solid #f0f0f0;
+        }
+
+        h1 {
+            font-weight: 500;
+            font-size: 2rem;
+            margin-top: 0;
+            margin-bottom: 2rem;
+            color: #1d1d1f;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1rem;
+        }
+
+        th,
+        td {
+            padding: 1.25rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #f2f2f2;
+        }
+
+        th {
+            font-weight: 600;
+            color: #86868b;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .error {
+            color: #d93025;
+            background: #fce8e6;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border: 1px solid #f2b8b5;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            color: #86868b;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #1d1d1f;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 0;
+            color: #86868b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&larr; Back to Home</a>
+        <h1>AWS Ongoing Cost</h1>
+
+        {% if error %}
+        <div class="error">
+            <strong>Database Connection Error:</strong><br>
+            {{ error }}<br><br>
+            <span style="color: #5f6368;"><em>Ensure that the DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD environment
+                    variables are properly set via Terraform.</em></span>
+        </div>
+        {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Service Name</th>
+                    <th>Cost Per Hour (USD)</th>
+                    <th>Total Cost (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service, cost_per_hour, total_cost in costs %}
+                <tr>
+                    <td>{{ service }}</td>
+                    <td>${{ cost_per_hour }}</td>
+                    <td style="font-weight: 500;">${{ total_cost }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-state">No cost data available at the moment.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</body>
+
+</html>
