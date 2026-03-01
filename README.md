@@ -1,40 +1,41 @@
 # Keystone
 
-![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
-![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=flat&logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=flat&logo=terraform&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=Prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/grafana-%23F46800.svg?style=flat&logo=grafana&logoColor=white)
-![Argocd](https://img.shields.io/badge/argo-%23EF7B4D.svg?style=flat&logo=argo&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=flat&logo=amazon-aws&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=flat&logo=python&logoColor=ffdd54)
 
-Keystone is a modular, cloud-ready platform engineering project featuring a complete observability stack (Prometheus, Grafana, Loki), automated infrastructure management via Terraform, and flexible compute support (EKS/ECS) designed to streamline application deployments.
+Keystone is a modular, layered AWS infrastructure project managed via Terraform. It is designed to demonstrate deploying a containerized Python (Flask) web application on Amazon ECS Fargate. The project implements a secure, robust network architecture, a managed PostgreSQL database, and automated application load balancing.
 
-## Project Status (WIP)
-
-| Component | Status | Description |
-| :--- | :--- | :--- |
-| **Observability** | ⚪️ In Progress | Prometheus, Grafana, Loki stacks setup via Terraform |
-| **Network (AWS)** | ⚪️ In Progress | VPC, Subnets, Gateways setup |
-| **Compute (AWS)** | ⚪️ Planned | EKS / ECS module configurations |
-| **Data (AWS/OS)** | ⚪️ Planned | Open-source and AWS RDS Terraform modules |
-| **Sample App** | ⚪️ Planned | API and Docker setup for deployment examples |
-| **GitOps** | ⚪️ Planned | ArgoCD implementations |
+> **Note:** This project has evolved from a Kubernetes-centric platform into a serverless AWS native (ECS Fargate) deployment architecture.
 
 ## Features
 
-*   **Infrastructure as Code**: Managed via Terraform.
-*   **Observability Stack**: Complete monitoring with Prometheus, Grafana, Loki, and Tempo.
-*   **GitOps**: Continuous deployment utilizing ArgoCD. (WIP)
-*   **Kubernetes Native**: Built for scalability and reliability with HPA/VPA support. (WIP)
+*   **Infrastructure as Code**: Managed via structured, layered Terraform modules.
+*   **Network Security**: Custom VPC architecture with isolated public, private, and database subnets using AWS native best practices.
+*   **Serverless Compute**: Fully managed container orchestration utilizing AWS ECS Fargate and ECR.
+*   **Load Balancing**: Application Load Balancer (ALB) configured with HTTPS, ACM certificates, and host-based routing.
+*   **Managed Database**: AWS RDS (PostgreSQL) deployed in private database subnets.
+*   **Observability**: Integrated with AWS CloudWatch for Container Insights and logging.
+*   **Sample Python App**: A Flask web application that connects to the RDS instance to display ongoing AWS costs. 
 
 ## Project Structure
 
-*   `app/`: Application source code and container definitions.
-*   `data/`: Configuration for open-source datastores and managed services like AWS RDS.
-*   `infra/`: Layered AWS infrastructure defined in Terraform (Network, DNS, Observability, and Compute split into `eks/` and `ecs/` modules).
-*   `kubernetes/`: Base manifests and environment overlays for EKS deployments.
-*   `scripts/`: Automation and utility scripts.
+The repository is logically separated into application code and infrastructure layers:
 
-## Getting Started
+*   `app/`: Contains the front-end and back-end source code for the Flask application, along with Docker definitions (`docker-compose.yml`, etc.).
+*   `architecture.md`: Detailed visual architecture diagram (Mermaid) and infrastructure layering explanation.
+*   `terraform/`: Contains all Terraform configurations, cleanly separated into functional layers to avoid massive state files:
+    *   `infra/`: The baseline infrastructure layer consisting of the VPC, ALB, ECS Cluster, ECR, and VPC endpoints.
+    *   `data/`: The database layer with RDS PostgreSQL and Secrets Manager integrations.
+    *   `app/`: The compute layer managing ECS Fargate services, Task Definitions, and IAM networking roles.
+    *   `modules/`: Custom, reusable Terraform modules (`vpc`, `alb`, `ecs-cluster`, etc.).
 
-WIP
+## Architecture Quick Glance
+
+Deploys over 3 distinct terraform layers that read via `terraform_remote_state`:
+1. **Infra Layer**: Provisions VPC, subnets, gateways, ALB, and ECR.
+2. **Data Layer**: Provisions RDS and handles secure credentials in AWS Secrets Manager.
+3. **App Layer**: Provisions ECS services, pulls the application image from ECR, and connects to the RDS instance.
+
+For the full network flow and architectural diagrams, please see [architecture.md](architecture.md).

@@ -23,36 +23,12 @@ output "nat_gateway_public" {
   value = module.vpc.nat_gateway_public
 }
 
-
-
-output "rds_endpoint" {
-  description = "RDS connection endpoint (host:port)"
-  value       = module.rds.db_endpoint
+output "database_subnet_group_name" {
+  value = module.vpc.database_subnet_group_name
 }
 
-output "rds_address" {
-  description = "RDS hostname (without port)"
-  value       = module.rds.db_address
-}
-
-output "rds_port" {
-  description = "RDS port"
-  value       = module.rds.db_port
-}
-
-output "rds_db_name" {
-  description = "Name of the default database"
-  value       = module.rds.db_name
-}
-
-output "rds_master_user_secret_arn" {
-  description = "ARN of the Secrets Manager secret containing the master password"
-  value       = module.rds.db_master_user_secret_arn
-}
-
-output "rds_security_group_id" {
-  description = "Security group ID attached to the RDS instance (use in ECS task SG ingress rules)"
-  value       = module.rds.db_security_group_id
+output "vpc_cidr_block" {
+  value = module.vpc.vpc_cidr_block
 }
 
 
@@ -93,4 +69,24 @@ output "alb_http_listener_arn" {
 output "alb_https_listener_arn" {
   description = "ARN of the HTTPS listener (default 404, host rules forward to targets)"
   value       = module.alb.https_listener_arn
+}
+
+
+# ──────────────────────────────────────────────
+# ECS
+# ──────────────────────────────────────────────
+
+output "ecr_repository_url" {
+  description = "ECR repository URL — push Docker images here"
+  value       = module.ecs_cluster.ecr_repository_url
+}
+
+output "ecs_cluster_id" {
+  description = "ID of the ECS cluster"
+  value       = module.ecs_cluster.cluster_id
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.ecs_cluster.cluster_name
 }

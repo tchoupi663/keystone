@@ -1,3 +1,12 @@
+data "terraform_remote_state" "data" {
+  backend = "s3"
+  config = {
+    bucket = "keystone-infra-terraform-state"
+    key    = "data/eu-north-1/data.tfstate"
+    region = "eu-north-1"
+  }
+  workspace = terraform.workspace
+}
 
 module "vpc" {
   source = "../modules/vpc"
@@ -18,9 +27,9 @@ module "vpc" {
   connectivity_type       = "public"
 
   enable_internet_gateway = true
-  enable_nat_gateway      = true
+  enable_nat_gateway      = false
   single_nat_gateway      = false
-  one_nat_gateway_per_az  = true
+  one_nat_gateway_per_az  = false
 
   database_subnets_count       = 2
   create_database_subnet_group = true
@@ -29,50 +38,7 @@ module "vpc" {
 
   enable_s3_endpoint = true
 
-  interface_endpoint_services = ["ecs"]
-}
-
-
-module "rds" {
-  source = "../modules/rds"
-
-  environment = var.environment
-  project     = var.project
-  region      = var.region
-
-  # Networking ─ uses the DB subnet group created by the VPC module
-  vpc_id               = module.vpc.vpc_id
-  db_subnet_group_name = module.vpc.database_subnet_group_name
-  allowed_cidr_blocks  = [module.vpc.vpc_cidr_block] # ECS tasks in private subnets can reach the DB
-
-  # Engine
-  engine         = "postgres"
-  engine_version = "16"
-  port           = 5432
-
-  # Smallest instance ─ 20 GB gp3
-  instance_class    = "db.t4g.micro"
-  allocated_storage = 20
-  storage_type      = "gp3"
-
-  # Credentials ─ RDS manages the password in Secrets Manager
-  db_name                     = "appdb"
-  db_username                 = "dbadmin"
-  manage_master_user_password = true
-
-  # Backup
-  backup_retention_period = 7
-  backup_window           = "03:00-04:00"
-  maintenance_window      = "sun:04:30-sun:05:30"
-
-  # Availability (single-AZ to keep costs low in dev)
-  multi_az            = false # true
-  deletion_protection = false
-  skip_final_snapshot = true
-
-  # Encryption & Monitoring
-  storage_encrypted            = true
-  performance_insights_enabled = true
+  interface_endpoint_services = ["ecs", "ecr.api", "ecr.dkr"]
 }
 
 
@@ -94,10 +60,10 @@ module "alb" {
   drop_invalid_header_fields = true
 
   # TLS — HTTP auto-redirects to HTTPS, unmatched hosts get 404
-  certificate_arn = aws_acm_certificate.alb.arn
+  certificate_arn = aws_acm_certificate_validation.alb.certificate_arn
 
   # Default target group — ECS tasks will register here
-  target_group_port     = 80
+  target_group_port     = 5555
   target_group_protocol = "HTTP"
   target_type           = "ip" # Fargate uses awsvpc networking → ip targets
 
@@ -108,4 +74,14 @@ module "alb" {
 
   # Host-based routing — only matching domains reach the target group
   listener_rules = var.listener_rules
+}
+
+
+module "ecs_cluster" {
+  source = "../modules/ecs-cluster"
+
+  environment = var.environment
+  project     = var.project
+
+  enable_container_insights = true
 }
