@@ -4,8 +4,7 @@
 ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=flat&logo=amazon-aws&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=flat&logo=python&logoColor=ffdd54)
-![Vault](https://img.shields.io/badge/Vault-000000?style=for-the-badge&logo=vault&logoColor=white)
-[![GitHub Package](https://img.shields.io/badge/GitHub%20Package-v1.0.0-blue?logo=github&logoColor=white&style=for-the-badge)](https://github.com/tchoupi663/keystone)   
+![Vault](https://img.shields.io/badge/Vault-1c1c1c?style=flat&logo=vault&logoColor=white)   
 
 Keystone is a modular, layered AWS infrastructure project managed via Terraform. It is designed to demonstrate deploying a containerized Python (Flask) web application on Amazon ECS Fargate. The project implements a secure, robust network architecture, a managed PostgreSQL database, and automated application load balancing.
 
