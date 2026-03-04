@@ -91,7 +91,7 @@ variable "app_image" {
 variable "container_port" {
   description = "Port the container listens on"
   type        = number
-  default     = 5555
+  default     = 80
 }
 
 variable "task_cpu" {

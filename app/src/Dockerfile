@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Flask typically runs on 5000
-EXPOSE 5555
+EXPOSE 80
 
 # The command to start the app
 CMD ["python", "app.py"]

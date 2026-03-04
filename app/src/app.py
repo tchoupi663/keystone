@@ -124,4 +124,4 @@ if __name__ == '__main__':
     fetcher_thread.start()
     
     # Listen on all interfaces so it works inside a Docker container
-    app.run(host='0.0.0.0', port=5555)
+    app.run(host='0.0.0.0', port=80)

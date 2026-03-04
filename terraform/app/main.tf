@@ -19,7 +19,7 @@ data "terraform_remote_state" "data" {
 }
 
 module "app" {
-  source = "../modules/ecs-app"
+  source = "../modules/ecs-service"
 
   environment = var.environment
   project     = var.project
@@ -46,7 +46,7 @@ module "app" {
   db_master_user_secret_arn = data.terraform_remote_state.data.outputs.rds_master_user_secret_arn
 
   # Container
-  container_port = 5555
+  container_port = 80
   task_cpu       = "256"
   task_memory    = "512"
 

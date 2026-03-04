@@ -22,7 +22,7 @@ services:
       context: ./src
       dockerfile: Dockerfile
     ports:
-      - "5555:5555"
+      - "80:80"
     environment:
       DB_HOST: db
       DB_PORT: "5432"

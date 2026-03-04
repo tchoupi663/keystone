@@ -27,8 +27,8 @@ module "vpc" {
   connectivity_type       = "public"
 
   enable_internet_gateway = true
-  enable_nat_gateway      = false
-  single_nat_gateway      = false
+  enable_nat_gateway      = true
+  single_nat_gateway      = true
   one_nat_gateway_per_az  = false
 
   database_subnets_count       = 2
@@ -36,11 +36,28 @@ module "vpc" {
 
   enable_custom_nacls = false
 
-  enable_s3_endpoint = true
+  enable_s3_endpoint = false
 
-  interface_endpoint_services = ["ecs", "ecr.api", "ecr.dkr"]
+  interface_endpoint_services = []
 }
 
+module "dns" {
+  source = "../modules/dns"
+
+  domain_name               = var.domain_name
+  domain_validation_options = module.acm.domain_validation_options
+  alb_dns_name              = module.alb.alb_dns_name
+  alb_zone_id               = module.alb.alb_zone_id
+}
+
+module "acm" {
+  source = "../modules/acm"
+
+  domain_name             = var.domain_name
+  environment             = var.environment
+  project                 = var.project
+  validation_record_fqdns = module.dns.validation_record_fqdns
+}
 
 module "alb" {
   source = "../modules/alb"
@@ -48,6 +65,7 @@ module "alb" {
   environment = var.environment
   project     = var.project
   region      = var.region
+  domain_name = var.domain_name
 
   # Networking — ALB sits in public subnets, routes to ECS in private subnets
   vpc_id            = module.vpc.vpc_id
@@ -60,10 +78,10 @@ module "alb" {
   drop_invalid_header_fields = true
 
   # TLS — HTTP auto-redirects to HTTPS, unmatched hosts get 404
-  certificate_arn = aws_acm_certificate_validation.alb.certificate_arn
+  certificate_arn = module.acm.certificate_arn
 
   # Default target group — ECS tasks will register here
-  target_group_port     = 5555
+  target_group_port     = 80
   target_group_protocol = "HTTP"
   target_type           = "ip" # Fargate uses awsvpc networking → ip targets
 

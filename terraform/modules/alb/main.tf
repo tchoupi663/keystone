@@ -166,3 +166,5 @@ resource "aws_lb_listener_rule" "host_based" {
     Name = "${var.project}-${var.environment}-rule-${each.key}"
   })
 }
+
+

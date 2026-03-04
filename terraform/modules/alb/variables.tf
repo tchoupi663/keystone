@@ -14,6 +14,11 @@ variable "project" {
   default     = "keystone"
 }
 
+variable "domain_name" {
+  description = "Domain name to point to ALB"
+  type        = string
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
