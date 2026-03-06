@@ -7,7 +7,7 @@ TODO
 TODO/
 todo*
 
-temp.txt
+temp*
 
 .env
 .env/
@@ -27,3 +27,9 @@ temp.txt
 
 audit
 architecture.md
+
+*.infracost
+/.infracost
+.infracost
+.infracost/pricing.gob
+.infracost/terraform_modules/manifest-652cf30254a00299549da3f0bc2733b4.json

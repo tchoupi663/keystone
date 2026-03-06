@@ -32,3 +32,21 @@ variable "listener_rules" {
   }))
   default = {}
 }
+
+variable "public_subnets_count" {
+  description = "Number of public subnets"
+  type        = number
+  default     = 2
+}
+
+variable "private_subnets_count" {
+  description = "Number of private subnets"
+  type        = number
+  default     = 2
+}
+
+variable "database_subnets_count" {
+  description = "Number of database subnets"
+  type        = number
+  default     = 2
+}

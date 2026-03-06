@@ -18,7 +18,6 @@ module "rds" {
   # Networking ─ uses the DB subnet group created by the VPC module
   vpc_id               = data.terraform_remote_state.infra.outputs.vpc_id
   db_subnet_group_name = data.terraform_remote_state.infra.outputs.database_subnet_group_name
-  allowed_cidr_blocks  = [data.terraform_remote_state.infra.outputs.vpc_cidr_block] # ECS tasks in private subnets can reach the DB
 
   # Engine
   engine         = "postgres"

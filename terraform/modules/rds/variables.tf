@@ -47,11 +47,6 @@ variable "db_subnet_group_name" {
   type        = string
 }
 
-variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to connect to the database (e.g. the VPC CIDR so ECS tasks in private subnets can reach it)"
-  type        = list(string)
-}
-
 variable "engine" {
   description = "Database engine (e.g. postgres, mysql, mariadb)"
   type        = string

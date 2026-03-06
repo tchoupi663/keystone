@@ -6,17 +6,20 @@ CREATE TABLE IF NOT EXISTS aws_costs (
     total_cost DECIMAL(10, 2) NOT NULL
 );
 
--- Insert some mock AWS services and cost data
+-- Single-row metadata table for tracking the last successful CE sync
+CREATE TABLE IF NOT EXISTS app_metadata (
+    id INT PRIMARY KEY DEFAULT 1,
+    last_synced_at TIMESTAMPTZ,
+    CONSTRAINT single_row CHECK (id = 1)
+);
+
+-- Ensure the row exists (upsert no-op on conflict)
+INSERT INTO app_metadata (id, last_synced_at) VALUES (1, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Manual one-time costs not captured by Cost Explorer
 INSERT INTO aws_costs (service_name, cost_per_hour, total_cost) VALUES
-('Amazon EC2 (t3.micro)', 0.0104, 7.50),
-('Amazon RDS (db.t3.micro)', 0.0170, 12.24),
-('Amazon S3 (Standard Storage)', 0.0003, 0.25),
-('Elastic Load Balancing (ALB)', 0.0225, 16.20),
-('Amazon CloudFront', 0.0000, 1.50),
-('Amazon Route 53', 0.0000, 0.50),
-('AWS CloudTrail', 0.0000, 0.00),
-('Amazon ECS Fargate', 0.0400, 28.80),
-('Amazon EKS', 0.1000, 72.00)
-ON CONFLICT (service_name) DO UPDATE SET 
-    cost_per_hour = EXCLUDED.cost_per_hour, 
+('Domain Registration (edenkeystone.com)', 0.0000, 15.00)
+ON CONFLICT (service_name) DO UPDATE SET
+    cost_per_hour = EXCLUDED.cost_per_hour,
     total_cost = EXCLUDED.total_cost;

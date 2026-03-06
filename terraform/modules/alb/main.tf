@@ -22,13 +22,13 @@ resource "aws_security_group" "alb" {
     cidr_blocks = var.ingress_cidr_blocks
   }
 
-  # Egress to VPC targets (ECS tasks in private subnets)
+  # Egress to VPC targets (ECS tasks)
   egress {
-    description = "All traffic to VPC targets"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [var.vpc_cidr_block]
+    description     = "To ECS tasks on app port"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [var.ecs_sg_id]
   }
 
   tags = merge(local.common_tags, {
@@ -71,7 +71,7 @@ resource "aws_lb" "this" {
 
 
 resource "aws_lb_target_group" "default" {
-  name_prefix          = "app-"
+  name                 = "app-tg"
   port                 = var.target_group_port
   protocol             = var.target_group_protocol
   vpc_id               = var.vpc_id

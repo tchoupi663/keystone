@@ -108,6 +108,9 @@ resource "aws_default_security_group" "default" {
 
 locals {
   nat_gateway_count = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : (var.one_nat_gateway_per_az ? var.public_subnets_count : 1)) : 0
+
+  # For fck-nat, we just map route table IDs
+  private_route_table_ids = { for i, rt in aws_route_table.private : "private-${i}" => rt.id }
 }
 
 # EIP for NAT Gateway
@@ -133,6 +136,9 @@ resource "aws_nat_gateway" "nat_gateway_public" {
   depends_on = [aws_internet_gateway.internet_gateway]
 }
 
+
+
+
 # public route table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.vpc.id
@@ -157,7 +163,7 @@ resource "aws_route_table_association" "public" {
 
 # private route table
 resource "aws_route_table" "private" {
-  count  = local.nat_gateway_count == 1 ? 1 : var.private_subnets_count
+  count  = local.nat_gateway_count > 0 ? (local.nat_gateway_count == 1 ? 1 : var.private_subnets_count) : 0
   vpc_id = aws_vpc.vpc.id
 
   tags = merge(local.common_tags, {
@@ -175,7 +181,7 @@ resource "aws_route" "private_nat_gateway" {
 
 # private route table association
 resource "aws_route_table_association" "private" {
-  count          = var.private_subnets_count
+  count          = local.nat_gateway_count > 0 ? var.private_subnets_count : 0
   subnet_id      = aws_subnet.subnet_private[count.index].id
   route_table_id = aws_route_table.private[local.nat_gateway_count == 1 ? 0 : count.index].id
 }
@@ -276,7 +282,7 @@ resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.vpc.id
   service_name      = "com.amazonaws.${var.region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids   = aws_route_table.private[*].id
+  route_table_ids   = local.nat_gateway_count > 0 ? aws_route_table.private[*].id : [aws_vpc.vpc.main_route_table_id]
 
   tags = merge(local.common_tags, {
     Name = "${var.environment}-s3-endpoint"

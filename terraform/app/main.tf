@@ -26,8 +26,8 @@ module "app" {
   region      = var.region
 
   # Networking
-  vpc_id             = data.terraform_remote_state.infra.outputs.vpc_id
-  private_subnet_ids = data.terraform_remote_state.infra.outputs.private_subnets
+  vpc_id     = data.terraform_remote_state.infra.outputs.vpc_id
+  subnet_ids = data.terraform_remote_state.infra.outputs.public_subnets
 
   # Cluster
   ecs_cluster_id   = data.terraform_remote_state.infra.outputs.ecs_cluster_id
@@ -37,6 +37,9 @@ module "app" {
   # ALB
   alb_security_group_id = data.terraform_remote_state.infra.outputs.alb_security_group_id
   alb_target_group_arn  = data.terraform_remote_state.infra.outputs.alb_target_group_arn
+
+  # Security
+  ecs_security_group_id = data.terraform_remote_state.infra.outputs.ecs_security_group_id
 
   # RDS
   rds_security_group_id     = data.terraform_remote_state.data.outputs.rds_security_group_id
@@ -51,7 +54,9 @@ module "app" {
   task_memory    = "512"
 
   desired_count          = 1
-  enable_execute_command = true
+  enable_execute_command = false
   log_retention_days     = 30
   enable_autoscaling     = false
+
+  capacity_provider_strategy = var.capacity_provider_strategy
 }

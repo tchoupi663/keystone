@@ -9,49 +9,6 @@ locals {
 }
 
 # ──────────────────────────────────────────────
-# Security Group — ECS Tasks
-# ──────────────────────────────────────────────
-# Inbound:  only from the ALB security group on the app port
-# Outbound: all traffic (NAT Gateway → internet, RDS, Secrets Manager, ECR, etc.)
-
-resource "aws_security_group" "ecs_tasks" {
-  name_prefix = "${var.environment}-ecs-tasks-"
-  description = "Allow inbound from ALB only, outbound to internet and RDS"
-  vpc_id      = var.vpc_id
-
-  tags = merge(local.common_tags, {
-    Name = "${var.environment}-ecs-tasks-sg"
-  })
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# Inbound from ALB on the application port
-resource "aws_security_group_rule" "ecs_ingress_from_alb" {
-  type                     = "ingress"
-  description              = "Allow traffic from ALB on app port"
-  from_port                = var.container_port
-  to_port                  = var.container_port
-  protocol                 = "tcp"
-  source_security_group_id = var.alb_security_group_id
-  security_group_id        = aws_security_group.ecs_tasks.id
-}
-
-# Outbound to anywhere (required for: NAT → internet, ECR pulls, Secrets Manager, RDS)
-resource "aws_security_group_rule" "ecs_egress_all" {
-  type              = "egress"
-  description       = "Allow all outbound traffic"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.ecs_tasks.id
-}
-
-
-# ──────────────────────────────────────────────
 # Allow ECS Tasks → RDS (add ingress to RDS SG)
 # ──────────────────────────────────────────────
 
@@ -61,7 +18,7 @@ resource "aws_security_group_rule" "rds_ingress_from_ecs" {
   from_port                = var.db_port
   to_port                  = var.db_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ecs_tasks.id
+  source_security_group_id = var.ecs_security_group_id
   security_group_id        = var.rds_security_group_id
 }
 
@@ -287,14 +244,25 @@ resource "aws_ecs_service" "app" {
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  launch_type     = length(var.capacity_provider_strategy) == 0 ? "FARGATE" : null
+
+  force_new_deployment = true
+
+  dynamic "capacity_provider_strategy" {
+    for_each = var.capacity_provider_strategy
+    content {
+      capacity_provider = capacity_provider_strategy.value.capacity_provider
+      weight            = capacity_provider_strategy.value.weight
+      base              = capacity_provider_strategy.value.base
+    }
+  }
 
   enable_execute_command = var.enable_execute_command
 
   network_configuration {
-    subnets          = var.private_subnet_ids
-    security_groups  = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = false # Tasks are in private subnets, NAT provides internet access
+    subnets          = var.subnet_ids
+    security_groups  = [var.ecs_security_group_id]
+    assign_public_ip = true
   }
 
   load_balancer {

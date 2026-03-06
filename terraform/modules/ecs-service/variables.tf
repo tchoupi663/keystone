@@ -27,7 +27,7 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "private_subnet_ids" {
+variable "subnet_ids" {
   description = "List of private subnet IDs where ECS tasks run"
   type        = list(string)
 }
@@ -44,6 +44,11 @@ variable "alb_security_group_id" {
 
 variable "alb_target_group_arn" {
   description = "ARN of the ALB target group to register ECS tasks with"
+  type        = string
+}
+
+variable "ecs_security_group_id" {
+  description = "Security group ID for ECS tasks"
   type        = string
 }
 
@@ -136,7 +141,28 @@ variable "health_check_grace_period" {
 variable "enable_execute_command" {
   description = "Enable ECS Exec (SSM-based shell access into containers) — useful for debugging"
   type        = bool
-  default     = true
+  default     = false
+}
+
+
+# ──────────────────────────────────────────────
+# Capacity provider
+# ──────────────────────────────────────────────
+
+variable "capacity_provider_strategy" {
+  description = "Capacity provider strategy for the ECS service. When set, launch_type is omitted. Each object must have 'capacity_provider' and optionally 'weight' and 'base'."
+  type = list(object({
+    capacity_provider = string
+    weight            = optional(number, 1)
+    base              = optional(number, 0)
+  }))
+  default = [
+    {
+      capacity_provider = "FARGATE"
+      weight            = 1
+      base              = 0
+    }
+  ]
 }
 
 

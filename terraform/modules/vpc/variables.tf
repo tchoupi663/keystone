@@ -119,6 +119,30 @@ variable "one_nat_gateway_per_az" {
   default     = false
 }
 
+variable "ha_mode" {
+  description = "Enable high-availability mode for EC2 NAT gateway"
+  type        = bool
+  default     = true
+}
+
+variable "nat_instance_type" {
+  description = "EC2 instance type for NAT gateway"
+  type        = string
+  default     = "t4g.nano"
+}
+
+variable "use_cloudwatch_agent" {
+  description = "Enable CloudWatch agent for NAT gateway"
+  type        = bool
+  default     = true
+}
+
+variable "update_route_tables" {
+  description = "Update route tables for NAT gateway"
+  type        = bool
+  default     = true
+}
+
 variable "database_subnets_count" {
   description = "Number of isolated database subnets (no internet route). Should match AZ count for RDS Multi-AZ"
   type        = number

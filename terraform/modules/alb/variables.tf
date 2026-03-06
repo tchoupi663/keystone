@@ -65,6 +65,11 @@ variable "vpc_cidr_block" {
   type        = string
 }
 
+variable "ecs_sg_id" {
+  description = "Security group ID of the ECS tasks to allow outbound traffic from ALB"
+  type        = string
+}
+
 # ──────────────────────────────────────────────
 # ALB Settings
 # ──────────────────────────────────────────────
@@ -111,7 +116,7 @@ variable "certificate_arn" {
 variable "ssl_policy" {
   description = "SSL policy for the HTTPS listener"
   type        = string
-  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  default     = "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09" # "ELBSecurityPolicy-TLS13-1-2-2021-06"
 }
 
 # ──────────────────────────────────────────────

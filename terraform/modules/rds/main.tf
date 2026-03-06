@@ -6,16 +6,8 @@
 
 resource "aws_security_group" "rds" {
   name_prefix = "${var.environment}-rds-"
-  description = "Allow inbound database traffic from authorised CIDR blocks"
+  description = "Allow inbound database traffic from ECS tasks SG only"
   vpc_id      = var.vpc_id
-
-  ingress {
-    description = "Database port from allowed CIDRs"
-    from_port   = var.port
-    to_port     = var.port
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
-  }
 
   tags = merge(local.common_tags, {
     Name = "${var.environment}-rds-sg"
