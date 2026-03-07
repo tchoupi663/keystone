@@ -109,13 +109,18 @@ resource "aws_default_security_group" "default" {
 locals {
   nat_gateway_count = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : (var.one_nat_gateway_per_az ? var.public_subnets_count : 1)) : 0
 
-  # For fck-nat, we just map route table IDs
+  use_nat_gateway  = var.enable_nat_gateway && var.nat_type == "gateway"
+  use_nat_instance = var.enable_nat_gateway && var.nat_type == "instance"
+
+  nat_gw_count       = local.use_nat_gateway ? local.nat_gateway_count : 0
+  nat_instance_count = local.use_nat_instance ? local.nat_gateway_count : 0
+
   private_route_table_ids = { for i, rt in aws_route_table.private : "private-${i}" => rt.id }
 }
 
 # EIP for NAT Gateway
 resource "aws_eip" "nat_eip" {
-  count  = local.nat_gateway_count
+  count  = local.nat_gw_count
   domain = "vpc"
 
   # ensure IGW exists before trying to allocate the EIP
@@ -124,7 +129,7 @@ resource "aws_eip" "nat_eip" {
 
 # NAT Gateway resource for public subnets
 resource "aws_nat_gateway" "nat_gateway_public" {
-  count             = local.nat_gateway_count
+  count             = local.nat_gw_count
   allocation_id     = aws_eip.nat_eip[count.index].id
   subnet_id         = aws_subnet.subnet_public[count.index].id
   connectivity_type = var.connectivity_type
@@ -137,6 +142,194 @@ resource "aws_nat_gateway" "nat_gateway_public" {
 }
 
 
+# ──────────────────────────────────────────────
+# fck-nat Instance in ASG (cost-effective NAT with auto-recovery)
+# ──────────────────────────────────────────────
+# Instead of a bare EC2 instance, we use a Launch Template + ASG (min=max=1)
+# so that AWS automatically replaces the instance if it becomes unhealthy.
+# A dedicated ENI provides a stable network-interface ID for the private
+# subnet route table — the ENI survives instance replacement.
+# ──────────────────────────────────────────────
+
+data "aws_ami" "fck_nat" {
+  count       = local.use_nat_instance ? 1 : 0
+  most_recent = true
+  owners      = ["568608671756"]
+
+  filter {
+    name   = "name"
+    values = ["fck-nat-al2023-*-arm64-*"]
+  }
+}
+
+resource "aws_security_group" "fck_nat" {
+  count       = local.use_nat_instance ? 1 : 0
+  name_prefix = "${var.environment}-fck-nat-"
+  description = "Security group for fck-nat NAT instance"
+  vpc_id      = aws_vpc.vpc.id
+
+  ingress {
+    description = "Allow all traffic from VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.cidr_block]
+  }
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-fck-nat-sg"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Dedicated ENI — lives in the public subnet and persists across instance replacements.
+# The private route table points at this ENI, so routing is unaffected during recovery.
+resource "aws_network_interface" "fck_nat" {
+  count             = local.nat_instance_count
+  subnet_id         = aws_subnet.subnet_public[count.index].id
+  security_groups   = [aws_security_group.fck_nat[0].id]
+  source_dest_check = false
+  description       = "Primary ENI for fck-nat instance (stable for route table)"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-fck-nat-eni-${data.aws_availability_zones.available.names[count.index % length(data.aws_availability_zones.available.names)]}"
+  })
+}
+
+resource "aws_eip" "fck_nat" {
+  count  = local.nat_instance_count
+  domain = "vpc"
+
+  depends_on = [aws_internet_gateway.internet_gateway]
+}
+
+resource "aws_eip_association" "fck_nat" {
+  count                = local.nat_instance_count
+  network_interface_id = aws_network_interface.fck_nat[count.index].id
+  allocation_id        = aws_eip.fck_nat[count.index].id
+}
+
+# IAM role for fck-nat instances (allows SSM and CloudWatch)
+resource "aws_iam_role" "fck_nat" {
+  count = local.use_nat_instance ? 1 : 0
+  name  = "${var.environment}-fck-nat-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-fck-nat-role"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "fck_nat_ssm" {
+  count      = local.use_nat_instance ? 1 : 0
+  role       = aws_iam_role.fck_nat[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "fck_nat" {
+  count = local.use_nat_instance ? 1 : 0
+  name  = "${var.environment}-fck-nat-profile"
+  role  = aws_iam_role.fck_nat[0].name
+}
+
+# Launch Template — defines the fck-nat instance configuration
+resource "aws_launch_template" "fck_nat" {
+  count         = local.use_nat_instance ? 1 : 0
+  name_prefix   = "${var.environment}-fck-nat-"
+  image_id      = data.aws_ami.fck_nat[0].id
+  instance_type = var.nat_instance_type
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.fck_nat[0].name
+  }
+
+  # Attach the dedicated ENI as the primary network interface
+  network_interfaces {
+    device_index                = 0
+    network_interface_id        = aws_network_interface.fck_nat[0].id
+    delete_on_termination       = false
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(local.common_tags, {
+      Name = "${var.environment}-fck-nat"
+    })
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-fck-nat-lt"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [aws_internet_gateway.internet_gateway]
+}
+
+# Auto Scaling Group — keeps exactly 1 fck-nat instance running.
+# If the instance fails the EC2 health check, ASG terminates it and launches a replacement
+# that re-attaches to the same ENI, preserving the EIP and route table entry.
+resource "aws_autoscaling_group" "fck_nat" {
+  count               = local.use_nat_instance ? 1 : 0
+  name_prefix         = "${var.environment}-fck-nat-"
+  min_size            = 1
+  max_size            = 1
+  desired_capacity    = 1
+  # Place in the same AZ as the ENI
+  availability_zones  = [aws_subnet.subnet_public[0].availability_zone]
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 120
+  default_cooldown          = 60
+
+  launch_template {
+    id      = aws_launch_template.fck_nat[0].id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${var.environment}-fck-nat"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Environment"
+    value               = var.environment
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "ManagedBy"
+    value               = "terraform"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
 
 
 # public route table
@@ -171,12 +364,20 @@ resource "aws_route_table" "private" {
   })
 }
 
-# NAT gateway resource for private subnets
+# NAT Gateway route for private subnets
 resource "aws_route" "private_nat_gateway" {
-  count                  = local.nat_gateway_count
+  count                  = local.nat_gw_count
   route_table_id         = aws_route_table.private[count.index].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gateway_public[count.index].id
+}
+
+# fck-nat instance route for private subnets (via stable ENI)
+resource "aws_route" "private_nat_instance" {
+  count                  = local.nat_instance_count
+  route_table_id         = aws_route_table.private[count.index].id
+  destination_cidr_block = "0.0.0.0/0"
+  network_interface_id   = aws_network_interface.fck_nat[count.index].id
 }
 
 # private route table association

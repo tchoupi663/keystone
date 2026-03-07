@@ -81,6 +81,11 @@ output "ecr_repository_url" {
   value       = module.ecs_cluster.ecr_repository_url
 }
 
+output "ecr_repository_arn" {
+  description = "ECR repository ARN — used to scope IAM policies"
+  value       = module.ecs_cluster.ecr_repository_arn
+}
+
 output "ecs_cluster_id" {
   description = "ID of the ECS cluster"
   value       = module.ecs_cluster.cluster_id

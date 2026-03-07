@@ -28,8 +28,14 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "List of private subnet IDs where ECS tasks run"
+  description = "List of subnet IDs where ECS tasks run (private subnets when using NAT)"
   type        = list(string)
+}
+
+variable "assign_public_ip" {
+  description = "Assign a public IP to ECS tasks. Set to false when tasks run in private subnets behind NAT."
+  type        = bool
+  default     = false
 }
 
 
@@ -90,6 +96,11 @@ variable "db_master_user_secret_arn" {
 
 variable "app_image" {
   description = "Full Docker image URI (e.g. 123456789.dkr.ecr.eu-north-1.amazonaws.com/app:latest). If null, uses the ECR repository created by this module."
+  type        = string
+}
+
+variable "ecr_repository_arn" {
+  description = "ARN of the ECR repository — used to scope the execution role's pull permissions to this repo only"
   type        = string
 }
 

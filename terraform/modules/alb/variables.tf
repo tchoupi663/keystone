@@ -176,7 +176,7 @@ variable "enable_access_logs" {
 variable "access_logs_bucket" {
   description = "S3 bucket name for ALB access logs (required when enable_access_logs = true)"
   type        = string
-  default     = ""
+  default     = "keystone-infra-terraform-state"
 }
 
 variable "access_logs_prefix" {

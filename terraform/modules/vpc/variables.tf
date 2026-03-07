@@ -107,6 +107,16 @@ variable "enable_nat_gateway" {
   default     = true
 }
 
+variable "nat_type" {
+  description = "Type of NAT to use: 'gateway' for AWS NAT Gateway (~$32/mo), 'instance' for fck-nat EC2 (~$3/mo)"
+  type        = string
+  default     = "gateway"
+  validation {
+    condition     = contains(["gateway", "instance"], var.nat_type)
+    error_message = "nat_type must be 'gateway' or 'instance'"
+  }
+}
+
 variable "single_nat_gateway" {
   description = "Should be true if you want to provision a single shared NAT Gateway across all of your private networks"
   type        = bool

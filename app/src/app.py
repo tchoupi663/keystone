@@ -207,6 +207,7 @@ def sync_aws_costs():
         # Sleep for 1h before syncing again
         time.sleep(3600)
 
+
 if __name__ == '__main__':
     init_db()
 

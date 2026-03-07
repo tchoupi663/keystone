@@ -9,7 +9,7 @@ data "terraform_remote_state" "data" {
 }
 
 module "vpc" {
-  source = "../modules/vpc"
+  source = "../../modules/vpc"
 
   region      = var.region
   environment = var.environment
@@ -27,22 +27,23 @@ module "vpc" {
   connectivity_type       = "public"
 
   enable_internet_gateway = true
-  enable_nat_gateway      = false
-  single_nat_gateway      = false
+  enable_nat_gateway      = true
+  nat_type                = "instance"
+  single_nat_gateway      = true
   one_nat_gateway_per_az  = false
 
   database_subnets_count       = var.database_subnets_count
   create_database_subnet_group = true
 
-  enable_custom_nacls = false
+  enable_custom_nacls = true
 
-  enable_s3_endpoint = false
+  enable_s3_endpoint = true
 
   interface_endpoint_services = []
 }
 
 module "dns" {
-  source = "../modules/dns"
+  source = "../../modules/dns"
 
   domain_name               = var.domain_name
   domain_validation_options = module.acm.domain_validation_options
@@ -51,7 +52,7 @@ module "dns" {
 }
 
 module "acm" {
-  source = "../modules/acm"
+  source = "../../modules/acm"
 
   domain_name             = var.domain_name
   environment             = var.environment
@@ -86,7 +87,7 @@ resource "aws_security_group" "ecs_tasks" {
 }
 
 module "alb" {
-  source = "../modules/alb"
+  source = "../../modules/alb"
 
   environment = var.environment
   project     = var.project
@@ -136,7 +137,7 @@ resource "aws_security_group_rule" "ecs_ingress_from_alb" {
 
 
 module "ecs_cluster" {
-  source = "../modules/ecs-cluster"
+  source = "../../modules/ecs-cluster"
 
   environment = var.environment
   project     = var.project

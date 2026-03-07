@@ -366,8 +366,9 @@
 
     {% if costs %}
     <script>
-        const labels = [{% for service, cph, tc in costs %}'{{ service }}'{% if not loop.last %}, {% endif %} {% endfor %}];
-        const values = [{% for service, cph, tc in costs %}{ { tc } } {% if not loop.last %}, {% endif %} {% endfor %}];
+        const rawCosts = {{ costs | tojson }};
+        const labels = rawCosts.map(r => r[0]);
+        const values = rawCosts.map(r => parseFloat(r[2]));
 
         const palette = [
             '#007aff', '#34c759', '#ff9f0a', '#ff375f', '#af52de',

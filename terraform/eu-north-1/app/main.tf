@@ -19,7 +19,7 @@ data "terraform_remote_state" "data" {
 }
 
 module "app" {
-  source = "../modules/ecs-service"
+  source = "../../modules/ecs-service"
 
   environment = var.environment
   project     = var.project
@@ -27,12 +27,15 @@ module "app" {
 
   # Networking
   vpc_id     = data.terraform_remote_state.infra.outputs.vpc_id
-  subnet_ids = data.terraform_remote_state.infra.outputs.public_subnets
+  subnet_ids = data.terraform_remote_state.infra.outputs.private_subnets
+
+  assign_public_ip = false
 
   # Cluster
   ecs_cluster_id   = data.terraform_remote_state.infra.outputs.ecs_cluster_id
   ecs_cluster_name = data.terraform_remote_state.infra.outputs.ecs_cluster_name
   app_image        = "${data.terraform_remote_state.infra.outputs.ecr_repository_url}:latest"
+  ecr_repository_arn = data.terraform_remote_state.infra.outputs.ecr_repository_arn
 
   # ALB
   alb_security_group_id = data.terraform_remote_state.infra.outputs.alb_security_group_id

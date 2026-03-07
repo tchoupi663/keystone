@@ -9,7 +9,7 @@ data "terraform_remote_state" "infra" {
 }
 
 module "rds" {
-  source = "../modules/rds"
+  source = "../../modules/rds"
 
   environment = var.environment
   project     = var.project
