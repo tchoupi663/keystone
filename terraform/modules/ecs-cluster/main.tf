@@ -10,7 +10,7 @@ locals {
 
 resource "aws_ecr_repository" "app" {
   name                 = "${var.project}-${var.environment}-app"
-  image_tag_mutability = "MUTABLE" # immutable
+  image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
   image_scanning_configuration {

@@ -32,9 +32,9 @@ module "app" {
   assign_public_ip = false
 
   # Cluster
-  ecs_cluster_id   = data.terraform_remote_state.infra.outputs.ecs_cluster_id
-  ecs_cluster_name = data.terraform_remote_state.infra.outputs.ecs_cluster_name
-  app_image        = "${data.terraform_remote_state.infra.outputs.ecr_repository_url}:latest"
+  ecs_cluster_id     = data.terraform_remote_state.infra.outputs.ecs_cluster_id
+  ecs_cluster_name   = data.terraform_remote_state.infra.outputs.ecs_cluster_name
+  app_image          = "${data.terraform_remote_state.infra.outputs.ecr_repository_url}:${var.image_tag}"
   ecr_repository_arn = data.terraform_remote_state.infra.outputs.ecr_repository_arn
 
   # ALB

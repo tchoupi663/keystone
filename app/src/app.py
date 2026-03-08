@@ -4,12 +4,35 @@ import psycopg
 import threading
 import time
 import datetime
-import boto3
+import random
 
 app = Flask(__name__)
 
+# ──────────────────────────────────────────────
+# Infracost-based monthly cost estimates (USD)
+# Source: `infracost breakdown` across all stacks
+# ──────────────────────────────────────────────
+
+MONTHLY_COSTS = [
+    # terraform-eu-north-1-app-dev ($9.01)
+    ("Amazon Elastic Container Service", 9.01),
+
+    # terraform-eu-north-1-data-dev ($13.98)
+    ("Amazon Relational Database Service", 13.98),
+
+    # terraform-eu-north-1-infra-dev ($19.49)
+    ("Amazon Elastic Load Balancing", 16.43),
+    ("Amazon Elastic Compute Cloud", 3.07),      # fck-nat t4g.nano
+
+    # Usage-based estimates (small but non-zero)
+    ("Amazon CloudWatch", 0.15),
+    ("Amazon EC2 Container Registry (ECR)", 0.05),
+    ("Amazon Route 53", 0.02),
+    ("AWS Secrets Manager", 0.29),
+]
+
+
 def get_db_connection():
-    # To be configured via environment variables injected by Terraform/ECS
     conn = psycopg.connect(
         host=os.environ.get('DB_HOST', 'localhost'),
         port=int(os.environ.get('DB_PORT', '5432')),
@@ -143,55 +166,52 @@ def init_db(max_retries=12, retry_delay=5):
 
 
 # ──────────────────────────────────────────────
-# Background: AWS Cost Explorer sync
+# Background: Prorated cost simulation
 # ──────────────────────────────────────────────
 
-def sync_aws_costs():
-    """Background thread to fetch AWS costs using boto3 and store them in the DB."""
+def update_costs():
+    """Background thread that writes accumulated infracost estimates to the DB every hour.
+
+    Costs accumulate from PROJECT_START and never reset. For each service:
+        daily_cost  = monthly_cost / 30.44
+        total_cost  = daily_cost × days_since_start × jitter
+
+    A small ±3 % random jitter is applied per service on each run so the
+    numbers feel alive without drifting far from the baseline.
+    """
+    PROJECT_START = datetime.date(2026, 2, 28)
+    AVG_DAYS_PER_MONTH = 30.44
+
     while True:
-        print("Attempting to sync AWS costs...")
+        print("Updating cost data...")
         try:
-            # Cost Explorer endpoint is global but requires us-east-1 region
-            client = boto3.client('ce', region_name='us-east-1')
-            today = datetime.date.today()
-            start = today.replace(day=1)
-            end = today
-            if start == end:
-                # If first day of the month, pull last month's data
-                start = (today - datetime.timedelta(days=1)).replace(day=1)
+            now = datetime.datetime.utcnow()
+            today = now.date()
 
-            start_str = start.strftime('%Y-%m-%d')
-            end_str = end.strftime('%Y-%m-%d')
-
-            response = client.get_cost_and_usage(
-                TimePeriod={'Start': start_str, 'End': end_str},
-                Granularity='MONTHLY',
-                Metrics=['UnblendedCost'],
-                GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
-            )
-
-            results = response['ResultsByTime'][0]['Groups']
-            days_elapsed = max((end - start).days, 1)
-            hours_elapsed = days_elapsed * 24
+            # Total days elapsed since project launch (including partial day)
+            days_elapsed = (today - PROJECT_START).days + now.hour / 24.0
 
             conn = get_db_connection()
             cur = conn.cursor()
 
-            for group in results:
-                service_name = group['Keys'][0]
-                total_cost = float(group['Metrics']['UnblendedCost']['Amount'])
-                # Only store services that actually cost something notable
-                if total_cost > 0.00001:
-                    cost_per_hour = total_cost / hours_elapsed
+            # Clear old rows so only current data is shown
+            cur.execute('DELETE FROM aws_costs;')
+
+            for service_name, monthly_cost in MONTHLY_COSTS:
+                jitter = 1.0 + random.uniform(-0.03, 0.03)
+                daily_cost = monthly_cost / AVG_DAYS_PER_MONTH
+                total_cost = round(daily_cost * days_elapsed * jitter, 2)
+                cost_per_hour = round(monthly_cost / (AVG_DAYS_PER_MONTH * 24), 4)
+
+                if total_cost > 0.001:
                     cur.execute('''
                         INSERT INTO aws_costs (service_name, cost_per_hour, total_cost)
                         VALUES (%s, %s, %s)
                         ON CONFLICT (service_name) DO UPDATE SET
                             cost_per_hour = EXCLUDED.cost_per_hour,
-                            total_cost = EXCLUDED.total_cost;
+                            total_cost    = EXCLUDED.total_cost;
                     ''', (service_name, cost_per_hour, total_cost))
 
-            # Record the sync timestamp
             cur.execute('''
                 INSERT INTO app_metadata (id, last_synced_at) VALUES (1, NOW())
                 ON CONFLICT (id) DO UPDATE SET last_synced_at = NOW();
@@ -200,20 +220,20 @@ def sync_aws_costs():
             conn.commit()
             cur.close()
             conn.close()
-            print("AWS costs synced successfully.")
+            print("Cost data updated successfully.")
         except Exception as e:
-            print(f"Failed to sync AWS costs (safe to ignore in local dev): {e}")
+            print(f"Failed to update cost data: {e}")
 
-        # Sleep for 1h before syncing again
+        # Refresh every hour
         time.sleep(3600)
 
 
 if __name__ == '__main__':
     init_db()
 
-    # Start the background CE fetcher as a daemon thread
-    fetcher_thread = threading.Thread(target=sync_aws_costs, daemon=True)
-    fetcher_thread.start()
+    # Start the background cost updater as a daemon thread
+    cost_thread = threading.Thread(target=update_costs, daemon=True)
+    cost_thread.start()
 
     # Listen on all interfaces so it works inside a Docker container
     app.run(host='0.0.0.0', port=80)

@@ -5,11 +5,11 @@ project     = "keystone"
 
 capacity_provider_strategy = [
   {
-    base           = 2
+    base              = 2
     capacity_provider = "FARGATE_SPOT"
   },
   {
-    base           = 0
+    base              = 0
     capacity_provider = "FARGATE"
   }
 ]

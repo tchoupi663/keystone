@@ -28,3 +28,9 @@ variable "capacity_provider_strategy" {
     }
   ]
 }
+
+variable "image_tag" {
+  description = "Tag of the ECR image to deploy"
+  type        = string
+  default     = "latest"
+}

@@ -57,9 +57,9 @@ resource "aws_iam_role_policy" "ecs_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ECRAuth"
-        Effect = "Allow"
-        Action = ["ecr:GetAuthorizationToken"]
+        Sid      = "ECRAuth"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
         Resource = "*"
       },
       {
@@ -135,29 +135,8 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
-# Allow the ECS task container to pull data from AWS Cost Explorer
-resource "aws_iam_policy" "ecs_task_ce_access" {
-  name        = "${var.project}-${var.environment}-ecs-ce-access"
-  description = "Allow ECS task to fetch AWS costs from Cost Explorer"
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ce:GetCostAndUsage"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
 
-resource "aws_iam_role_policy_attachment" "ecs_task_ce_access_attachment" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = aws_iam_policy.ecs_task_ce_access.arn
-}
 
 # ECS Exec (SSH-like access into running containers for debugging)
 resource "aws_iam_role_policy" "ecs_exec" {

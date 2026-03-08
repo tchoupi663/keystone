@@ -170,13 +170,13 @@ variable "health_check" {
 variable "enable_access_logs" {
   description = "Enable ALB access logs to S3"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "access_logs_bucket" {
   description = "S3 bucket name for ALB access logs (required when enable_access_logs = true)"
   type        = string
-  default     = "keystone-infra-terraform-state"
+  default     = ""
 }
 
 variable "access_logs_prefix" {

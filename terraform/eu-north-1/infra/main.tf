@@ -67,10 +67,18 @@ resource "aws_security_group" "ecs_tasks" {
 
   # Outbound: internet access required for ECR image pulls, CloudWatch Logs, Secrets Manager
   egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "Allow RDS access within VPC"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [var.cidr_block]
+  }
+
+  egress {
+    description = "Allow HTTPS for AWS APIs (ECR, CloudWatch, S3, etc.)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -84,6 +92,37 @@ resource "aws_security_group" "ecs_tasks" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+data "aws_caller_identity" "current" {}
+data "aws_elb_service_account" "main" {}
+
+resource "aws_s3_bucket" "alb_logs" {
+  bucket        = "${var.project}-${var.environment}-alb-logs-${data.aws_caller_identity.current.account_id}-${var.region}"
+  force_destroy = true
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_s3_bucket_policy" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = data.aws_elb_service_account.main.arn
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.alb_logs.arn}/alb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      }
+    ]
+  })
 }
 
 module "alb" {
@@ -121,6 +160,12 @@ module "alb" {
   listener_rules = var.listener_rules
 
   ecs_sg_id = aws_security_group.ecs_tasks.id
+
+  enable_access_logs = true
+  access_logs_bucket = aws_s3_bucket.alb_logs.bucket
+  access_logs_prefix = "alb-logs"
+
+  depends_on = [aws_s3_bucket_policy.alb_logs]
 }
 
 # Ingress rule added after module.alb to break the circular SG reference:

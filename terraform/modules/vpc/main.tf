@@ -169,10 +169,18 @@ resource "aws_security_group" "fck_nat" {
   vpc_id      = aws_vpc.vpc.id
 
   ingress {
-    description = "Allow all traffic from VPC"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "Allow HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.cidr_block]
+  }
+
+  ingress {
+    description = "Allow HTTP from VPC"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = [var.cidr_block]
   }
 
@@ -264,9 +272,9 @@ resource "aws_launch_template" "fck_nat" {
 
   # Attach the dedicated ENI as the primary network interface
   network_interfaces {
-    device_index                = 0
-    network_interface_id        = aws_network_interface.fck_nat[0].id
-    delete_on_termination       = false
+    device_index          = 0
+    network_interface_id  = aws_network_interface.fck_nat[0].id
+    delete_on_termination = false
   }
 
   tag_specifications {
@@ -291,13 +299,13 @@ resource "aws_launch_template" "fck_nat" {
 # If the instance fails the EC2 health check, ASG terminates it and launches a replacement
 # that re-attaches to the same ENI, preserving the EIP and route table entry.
 resource "aws_autoscaling_group" "fck_nat" {
-  count               = local.use_nat_instance ? 1 : 0
-  name_prefix         = "${var.environment}-fck-nat-"
-  min_size            = 1
-  max_size            = 1
-  desired_capacity    = 1
+  count            = local.use_nat_instance ? 1 : 0
+  name_prefix      = "${var.environment}-fck-nat-"
+  min_size         = 1
+  max_size         = 2
+  desired_capacity = 1
   # Place in the same AZ as the ENI
-  availability_zones  = [aws_subnet.subnet_public[0].availability_zone]
+  availability_zones = [aws_subnet.subnet_public[0].availability_zone]
 
   health_check_type         = "EC2"
   health_check_grace_period = 120
