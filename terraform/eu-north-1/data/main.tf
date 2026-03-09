@@ -37,7 +37,7 @@ module "rds" {
   # Backup
   backup_retention_period = 7
   backup_window           = "03:00-04:00"
-  maintenance_window      = "sun:04:30-sun:05:30"
+  maintenance_window      = "sun:04:00-sun:05:00"
 
   # Availability (single-AZ to keep costs low in dev)
   multi_az            = false # true
