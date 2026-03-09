@@ -57,7 +57,7 @@ module "app" {
   task_memory    = "512"
 
   desired_count          = 1
-  enable_execute_command = true
+  enable_execute_command = false
   log_retention_days     = 14
   enable_autoscaling     = true 
 
