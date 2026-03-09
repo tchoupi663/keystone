@@ -65,7 +65,6 @@ resource "aws_security_group" "ecs_tasks" {
   description = "Allow inbound from ALB only, outbound to internet"
   vpc_id      = module.vpc.vpc_id
 
-  # Outbound: internet access required for ECR image pulls, CloudWatch Logs, Secrets Manager
   egress {
     description = "Allow RDS access within VPC"
     from_port   = 5432

@@ -8,7 +8,7 @@ on:
 jobs:
   check-changes:
     name: Check for Terraform Changes
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       tf_changed: ${{ steps.filter.outputs.terraform }}
     steps:
@@ -33,7 +33,7 @@ jobs:
     needs: check-changes
     # This prevents the job from even starting if tf files weren't changed
     if: needs.check-changes.outputs.tf_changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       id-token: write # Required if using OIDC to authenticate with AWS
       contents: read
@@ -46,6 +46,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
