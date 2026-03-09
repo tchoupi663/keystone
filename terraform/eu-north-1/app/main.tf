@@ -58,8 +58,8 @@ module "app" {
 
   desired_count          = 1
   enable_execute_command = true
-  log_retention_days     = 30
-  enable_autoscaling     = true
+  log_retention_days     = 14
+  enable_autoscaling     = true 
 
   capacity_provider_strategy = var.capacity_provider_strategy
 }
