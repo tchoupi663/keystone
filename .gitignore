@@ -33,3 +33,8 @@ architecture.md
 .infracost
 .infracost/pricing.gob
 .infracost/terraform_modules/manifest-652cf30254a00299549da3f0bc2733b4.json
+
+actions/
+actions*
+.actions/
+.actions*
