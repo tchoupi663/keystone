@@ -1,12 +1,3 @@
-data "terraform_remote_state" "data" {
-  backend = "s3"
-  config = {
-    bucket = "keystone-infra-terraform-state"
-    key    = "data/eu-north-1/data.tfstate"
-    region = "eu-north-1"
-  }
-  workspace = terraform.workspace
-}
 
 module "vpc" {
   source = "../../modules/vpc"

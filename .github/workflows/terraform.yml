@@ -81,9 +81,9 @@ jobs:
         working-directory: terraform/eu-north-1/infra
         run: terraform plan -var-file=tfvars/dev.tfvars -out=tfplan
 
-      - name: Terraform Apply - Infra
-        working-directory: terraform/eu-north-1/infra
-        run: terraform apply -auto-approve tfplan
+      #- name: Terraform Apply - Infra
+      #  working-directory: terraform/eu-north-1/infra
+      #  run: terraform apply -auto-approve tfplan
 
       # -------------------------------------------------------------
       # 2. Deploy DATA
@@ -96,9 +96,9 @@ jobs:
         working-directory: terraform/eu-north-1/data
         run: terraform plan -var-file=tfvars/dev.tfvars -out=tfplan
 
-      - name: Terraform Apply - Data
-        working-directory: terraform/eu-north-1/data
-        run: terraform apply -auto-approve tfplan
+      #- name: Terraform Apply - Data
+      #  working-directory: terraform/eu-north-1/data
+      #  run: terraform apply -auto-approve tfplan
 
       # -------------------------------------------------------------
       # 3. Deploy APP
@@ -111,6 +111,6 @@ jobs:
         working-directory: terraform/eu-north-1/app
         run: terraform plan -var-file=tfvars/dev.tfvars -out=tfplan
 
-      - name: Terraform Apply - App
-        working-directory: terraform/eu-north-1/app
-        run: terraform apply -auto-approve tfplan
+      #- name: Terraform Apply - App
+      #  working-directory: terraform/eu-north-1/app
+      #  run: terraform apply -auto-approve tfplan
