@@ -18,10 +18,17 @@ jobs:
           # fetch-depth: 0 is required for dorny/paths-filter to compare the new tag with the previous tag
           fetch-depth: 0
 
+      - name: Get Previous Tag
+        id: previoustag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^1 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -n 1)
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
       - name: Paths Filter
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          base: ${{ steps.previoustag.outputs.tag }}
           filters: |
             terraform:
               - 'terraform/**/*.tf'
@@ -52,11 +59,13 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Load Environment Variables
+        run: if [ -f .env ]; then cat .env >> $GITHUB_ENV; fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           # Modify to use either role-to-assume or aws-access-key-id depending on your org setup
-          run: cat .env >> $GITHUB_ENV   
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
