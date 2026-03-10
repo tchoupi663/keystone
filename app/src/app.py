@@ -231,9 +231,7 @@ def update_costs():
 if __name__ == '__main__':
     init_db()
 
-    # Start the background cost updater as a daemon thread
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()
 
-    # Listen on all interfaces so it works inside a Docker container
     app.run(host='0.0.0.0', port=80)
