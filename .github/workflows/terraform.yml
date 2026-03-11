@@ -13,7 +13,7 @@ jobs:
       tf_changed: ${{ steps.filter.outputs.terraform }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # fetch-depth: 0 is required for dorny/paths-filter to compare the new tag with the previous tag
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
