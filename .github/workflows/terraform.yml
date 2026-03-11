@@ -63,7 +63,7 @@ jobs:
         run: if [ -f .env ]; then cat .env >> $GITHUB_ENV; fi
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           # Modify to use either role-to-assume or aws-access-key-id depending on your org setup
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
