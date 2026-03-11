@@ -13,7 +13,7 @@ jobs:
       tf_changed: ${{ steps.filter.outputs.terraform }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # fetch-depth: 0 is required for dorny/paths-filter to compare the new tag with the previous tag
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -63,7 +63,7 @@ jobs:
         run: if [ -f .env ]; then cat .env >> $GITHUB_ENV; fi
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           # Modify to use either role-to-assume or aws-access-key-id depending on your org setup
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
