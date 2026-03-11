@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/**
     paths:
       - 'app/src/**'
       - '.github/workflows/container-build.yml'
