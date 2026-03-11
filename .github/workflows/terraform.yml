@@ -57,7 +57,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Load Environment Variables
         run: if [ -f .env ]; then cat .env >> $GITHUB_ENV; fi
