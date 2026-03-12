@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
       packages: write
       id-token: write
       attestations: write
@@ -58,15 +59,8 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Update TFVars and push to main
+      - name: Update TFVars with new image tag
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Fetch and checkout main branch, as tags check out a detached HEAD
-          git fetch origin main
-          git checkout main
-          
           TFVARS_FILE="terraform/eu-north-1/app/tfvars/dev.tfvars"
           
           # Ensure there's a newline at the end if we're appending
@@ -77,7 +71,13 @@ jobs:
           else
             echo "image_tag = \"${GITHUB_REF_NAME}\"" >> "$TFVARS_FILE"
           fi
-          
-          git add "$TFVARS_FILE"
-          git commit -m "chore(dev): update app image tag to ${GITHUB_REF_NAME}"
-          git push origin main
+
+      - name: Create Pull Request with TFVars update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(dev): update app image tag to ${{ github.ref_name }}"
+          title: "Update app image tag to ${{ github.ref_name }}"
+          body: "This PR automatically updates `dev.tfvars` with the newly built Docker image tag (`${{ github.ref_name }}`)."
+          branch: "update-image-tag-${{ github.ref_name }}"
+          base: main
