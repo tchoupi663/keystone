@@ -77,7 +77,7 @@ jobs:
       - name: Create Pull Request with TFVars update
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore(dev): update app image tag to ${{ github.ref_name }}"
           title: "Update app image tag to ${{ github.ref_name }}"
           body: "This PR automatically updates `dev.tfvars` with the newly built Docker image tag (`${{ github.ref_name }}`)."
