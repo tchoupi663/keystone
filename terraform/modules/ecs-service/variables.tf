@@ -99,8 +99,8 @@ variable "app_image" {
   type        = string
 }
 
-variable "ecr_repository_arn" {
-  description = "ARN of the ECR repository — used to scope the execution role's pull permissions to this repo only"
+variable "github_token_ssm_parameter_arn" {
+  description = "ARN of the SSM Parameter containing the GitHub Packages access token"
   type        = string
 }
 

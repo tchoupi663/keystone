@@ -76,15 +76,7 @@ output "alb_https_listener_arn" {
 # ECS
 # ──────────────────────────────────────────────
 
-output "ecr_repository_url" {
-  description = "ECR repository URL — push Docker images here"
-  value       = module.ecs_cluster.ecr_repository_url
-}
 
-output "ecr_repository_arn" {
-  description = "ECR repository ARN — used to scope IAM policies"
-  value       = module.ecs_cluster.ecr_repository_arn
-}
 
 output "ecs_cluster_id" {
   description = "ID of the ECS cluster"

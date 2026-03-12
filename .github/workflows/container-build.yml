@@ -2,12 +2,11 @@ name: Build and Push Container
 
 on:
   push:
-    branches:
-      - main
-      - feat/**
-    paths:
-      - 'app/src/**'
-      - '.github/workflows/container-build.yml'
+    tags:
+      - 'app-*'
+    # paths:
+    #  - 'app/src/**'
+    #  - '.github/workflows/container-build.yml'
   workflow_dispatch:
 
 env:
@@ -18,7 +17,7 @@ jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
       attestations: write
@@ -40,10 +39,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,format=long
-            type=ref,event=branch
             type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: build
@@ -61,3 +57,27 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+      - name: Update TFVars and push to main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Fetch and checkout main branch, as tags check out a detached HEAD
+          git fetch origin main
+          git checkout main
+          
+          TFVARS_FILE="terraform/eu-north-1/app/tfvars/dev.tfvars"
+          
+          # Ensure there's a newline at the end if we're appending
+          [ -n "$(tail -c 1 "$TFVARS_FILE")" ] && echo "" >> "$TFVARS_FILE"
+          
+          if grep -q "^image_tag" "$TFVARS_FILE"; then
+            sed -i "s/^image_tag.*/image_tag = \"${GITHUB_REF_NAME}\"/" "$TFVARS_FILE"
+          else
+            echo "image_tag = \"${GITHUB_REF_NAME}\"" >> "$TFVARS_FILE"
+          fi
+          
+          git add "$TFVARS_FILE"
+          git commit -m "chore(dev): update app image tag to ${GITHUB_REF_NAME}"
+          git push origin main

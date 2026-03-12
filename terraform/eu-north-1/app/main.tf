@@ -18,6 +18,10 @@ data "terraform_remote_state" "data" {
   workspace = terraform.workspace
 }
 
+data "aws_ssm_parameter" "github_token" {
+  name = var.github_token_ssm_parameter_name
+}
+
 module "app" {
   source = "../../modules/ecs-service"
 
@@ -32,10 +36,10 @@ module "app" {
   assign_public_ip = false
 
   # Cluster
-  ecs_cluster_id     = data.terraform_remote_state.infra.outputs.ecs_cluster_id
-  ecs_cluster_name   = data.terraform_remote_state.infra.outputs.ecs_cluster_name
-  app_image          = "${data.terraform_remote_state.infra.outputs.ecr_repository_url}:${var.image_tag}"
-  ecr_repository_arn = data.terraform_remote_state.infra.outputs.ecr_repository_arn
+  ecs_cluster_id                 = data.terraform_remote_state.infra.outputs.ecs_cluster_id
+  ecs_cluster_name               = data.terraform_remote_state.infra.outputs.ecs_cluster_name
+  app_image                      = "${var.app_image_repository}:${var.image_tag}"
+  github_token_ssm_parameter_arn = data.aws_ssm_parameter.github_token.arn
 
   # ALB
   alb_security_group_id = data.terraform_remote_state.infra.outputs.alb_security_group_id
@@ -59,7 +63,7 @@ module "app" {
   desired_count          = 1
   enable_execute_command = false
   log_retention_days     = 14
-  enable_autoscaling     = true 
+  enable_autoscaling     = true
 
   capacity_provider_strategy = var.capacity_provider_strategy
 }

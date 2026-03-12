@@ -57,20 +57,12 @@ resource "aws_iam_role_policy" "ecs_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "ECRAuth"
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
-        Resource = "*"
-      },
-      {
-        Sid    = "ECRPull"
+        Sid    = "SSMAuth"
         Effect = "Allow"
         Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
+          "ssm:GetParameters"
         ]
-        Resource = [var.ecr_repository_arn]
+        Resource = [var.github_token_ssm_parameter_arn]
       },
       {
         Sid    = "CloudWatchLogs"
@@ -194,6 +186,9 @@ resource "aws_ecs_task_definition" "app" {
       name      = local.container_name
       image     = var.app_image
       essential = true
+      repositoryCredentials = {
+        credentialsParameter = var.github_token_ssm_parameter_arn
+      }
 
       portMappings = [
         {

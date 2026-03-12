@@ -30,7 +30,16 @@ variable "capacity_provider_strategy" {
 }
 
 variable "image_tag" {
-  description = "Tag of the ECR image to deploy"
+  description = "Tag of the image to deploy"
   type        = string
-  default     = "latest"
+}
+
+variable "app_image_repository" {
+  description = "Docker image repository URI on GitHub Packages"
+  type        = string
+}
+
+variable "github_token_ssm_parameter_name" {
+  description = "Name of the SSM Parameter storing the GitHub Packages access token"
+  type        = string
 }
