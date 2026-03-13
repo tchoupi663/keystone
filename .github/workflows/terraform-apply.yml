@@ -1,0 +1,66 @@
+name: Terraform Apply
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  detect-stacks:
+    runs-on: ubuntu-latest
+    outputs:
+      stacks: ${{ steps.changed.outputs.stacks }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: terramate-io/terramate-action@v2
+
+      - name: Detect changed stacks
+        id: changed
+        run: |
+          STACKS=$(terramate list --changed --output json | jq -c '[.[].path]')
+          echo "stacks=$STACKS" >> "$GITHUB_OUTPUT"
+
+  apply:
+    needs: detect-stacks
+    if: needs.detect-stacks.outputs.stacks != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        stack: ${{ fromJson(needs.detect-stacks.outputs.stacks) }}
+      max-parallel: 1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Install Terragrunt
+        run: |
+          curl -sSL https://github.com/gruntwork-io/terragrunt/releases/download/v0.55.0/terragrunt_linux_amd64 \
+            -o /usr/local/bin/terragrunt
+          chmod +x /usr/local/bin/terragrunt
+
+      - uses: terramate-io/terramate-action@v2
+
+      - name: Terramate generate
+        run: terramate generate
+
+      - name: Terragrunt apply
+        working-directory: ${{ matrix.stack }}
+        run: terragrunt apply -auto-approve

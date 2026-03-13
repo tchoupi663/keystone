@@ -38,3 +38,11 @@ actions/
 actions*
 .actions/
 .actions*
+.terraform/
+.terragrunt-cache/
+*.tfplan
+tfplan.binary
+tfplan.json
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

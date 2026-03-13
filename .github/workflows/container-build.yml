@@ -44,6 +44,9 @@ jobs:
           tags: |
             type=ref,event=tag
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
@@ -83,3 +86,4 @@ jobs:
           body: "This PR automatically updates `dev.tfvars` with the newly built Docker image tag (`${{ github.ref_name }}`)."
           branch: "update-image-tag-${{ github.ref_name }}"
           base: main
+# use builtkit
