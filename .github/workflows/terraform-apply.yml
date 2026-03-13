@@ -24,7 +24,7 @@ jobs:
       - name: Detect changed stacks
         id: changed
         run: |
-          STACKS=$(terramate list --changed --output json | jq -c '[.[].path]')
+          STACKS=$(terramate list --changed | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "stacks=$STACKS" >> "$GITHUB_OUTPUT"
 
   apply:
