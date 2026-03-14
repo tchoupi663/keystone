@@ -28,6 +28,6 @@ globals "stack" {
     ]
     github_token_ssm_parameter_name = "/keystone/dev/github_token"
     app_image_repository            = "ghcr.io/tchoupi663/keystone"
-    image_tag                       = "app-1.0.0"
+    image_tag                       = "app-1.0.5"
   }
 }
