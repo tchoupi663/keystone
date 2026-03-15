@@ -198,29 +198,46 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
 
-    # ── TEMPORARILY DISABLED: Fluent Bit sidecar for debugging
-    # {
-    #   name  = "log_router"
-    #   image = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
-    #   essential = true
-    #   firelensConfiguration = {
-    #     type = "fluentbit"
-    #     options = {
-    #       "enable-ecs-log-metadata" = "true"
-    #     }
-    #   }
-    #   logConfiguration = {
-    #     logDriver = "awslogs"
-    #     options = {
-    #       "awslogs-group"         = aws_cloudwatch_log_group.fluent_bit.name
-    #       "awslogs-region"        = var.region
-    #       "awslogs-stream-prefix" = "firelens"
-    #     }
-    #   }
-    #   memory = 64
-    # },
+    # ── ADDED: Fluent Bit sidecar (FireLens log router)
+    # Must be declared before the app container so ECS starts it first.
+    # It receives log records from the app via the awsfirelens driver,
+    # then forwards them to Grafana Cloud Loki over HTTPS.
+    {
+      name  = "log_router"
+      image = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
 
-    # ── Your existing app container
+      # If this crashes, restart the whole task — silent log loss is worse than downtime.
+      essential = true
+
+      # This is what tells ECS this container IS the FireLens router.
+      # enable-ecs-log-metadata injects cluster/task/container name as Loki labels automatically.
+      firelensConfiguration = {
+        type = "fluentbit"
+        options = {
+          "enable-ecs-log-metadata" = "true"
+        }
+      }
+
+      # Fluent Bit's own internal logs go to CloudWatch (not Loki),
+      # so you can debug the sidecar without circular routing.
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.fluent_bit.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "firelens"
+        }
+      }
+
+      # Reserve 64MB for Fluent Bit. It's lightweight but needs a ceiling.
+      # NOTE: because of this, bump task_memory to at least 768 in your
+      # root module (currently 512). See comment at bottom of file.
+      memory = 64
+
+      # No ports needed — communication is internal via the FireLens socket.
+    },
+
+    # ── Your existing app container (with log driver changed to awsfirelens)
     {
       name      = local.container_name
       image     = var.app_image
@@ -254,47 +271,40 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      # ── TEMPORARILY DISABLED: awsfirelens (Loki) for debugging
-      # logConfiguration = {
-      #   logDriver = "awsfirelens"
-      #   options = {
-      #     Name           = "loki"
-      #     Host           = var.grafana_loki_host
-      #     port           = "443"
-      #     tls            = "on"
-      #     "tls.verify"   = "on"
-      #     http_user      = var.grafana_loki_user
-      #     line_format    = "json"
-      #     # Static labels always attached to every log line in Grafana
-      #     labels         = "job=${var.project},env=${var.environment},service=app"
-      #   }
-      #   secretOptions = [
-      #     {
-      #       # ECS resolves this from Secrets Manager and passes it to Fluent Bit
-      #       # as the `http_passwd` config value (the Loki basic-auth password).
-      #       name      = "http_passwd"
-      #       valueFrom = var.grafana_loki_api_key_secret_arn
-      #     }
-      #   ]
-      # }
-
-      # ── TEMPORARY: standard awslogs for debugging
+      # ── CHANGED: was awslogs, now awsfirelens
+      # ECS hands each log line to the Fluent Bit sidecar, which ships it to Loki.
+      # `secretOptions` lets ECS inject the Grafana API key at runtime without
+      # it ever appearing in plaintext in your task definition.
       logConfiguration = {
-        logDriver = "awslogs"
+        logDriver = "awsfirelens"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.app.name
-          "awslogs-region"        = var.region
-          "awslogs-stream-prefix" = "ecs"
+          Name           = "loki"
+          Host           = var.grafana_loki_host
+          port           = "443"
+          tls            = "on"
+          "tls.verify"   = "on"
+          http_user      = var.grafana_loki_user
+          line_format    = "json"
+          # Static labels always attached to every log line in Grafana
+          labels         = "job=${var.project},env=${var.environment},service=app"
         }
+        secretOptions = [
+          {
+            # ECS resolves this from Secrets Manager and passes it to Fluent Bit
+            # as the `http_passwd` config value (the Loki basic-auth password).
+            name      = "http_passwd"
+            valueFrom = var.grafana_loki_api_key_secret_arn
+          }
+        ]
       }
 
-      # ── DISABLED for debugging
-      # dependsOn = [
-      #   {
-      #     containerName = "log_router"
-      #     condition     = "START"
-      #   }
-      # ]
+      # ── Ensure app starts only after the log router is ready
+      dependsOn = [
+        {
+          containerName = "log_router"
+          condition     = "START"
+        }
+      ]
 
       healthCheck = {
         command     = ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${var.container_port}/\")'"]
