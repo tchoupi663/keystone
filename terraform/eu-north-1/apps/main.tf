@@ -5,7 +5,7 @@ data "terraform_remote_state" "infra" {
     key    = "infra/eu-north-1/infra.tfstate"
     region = "eu-north-1"
   }
-  workspace = terraform.workspace
+  #workspace = terraform.workspace
 }
 
 data "terraform_remote_state" "data" {
@@ -15,14 +15,17 @@ data "terraform_remote_state" "data" {
     key    = "data/eu-north-1/data.tfstate"
     region = "eu-north-1"
   }
-  workspace = terraform.workspace
+  #workspace = terraform.workspace
+}
+data "aws_secretsmanager_secret" "github-token" {
+  name = var.github_token_secret_name
 }
 
-data "aws_ssm_parameter" "github_token" {
-  name = var.github_token_ssm_parameter_name
+data "aws_secretsmanager_secret" "grafana_loki_api_key" {
+  name = "keystone/${var.environment}/grafana-loki-api-key"
 }
 
-module "app" {
+module "apps" {
   source = "../../modules/ecs-service"
 
   environment = var.environment
@@ -36,10 +39,10 @@ module "app" {
   assign_public_ip = false
 
   # Cluster
-  ecs_cluster_id                 = data.terraform_remote_state.infra.outputs.ecs_cluster_id
-  ecs_cluster_name               = data.terraform_remote_state.infra.outputs.ecs_cluster_name
-  app_image                      = "${var.app_image_repository}:${var.image_tag}"
-  github_token_ssm_parameter_arn = data.aws_ssm_parameter.github_token.arn
+  ecs_cluster_id          = data.terraform_remote_state.infra.outputs.ecs_cluster_id
+  ecs_cluster_name        = data.terraform_remote_state.infra.outputs.ecs_cluster_name
+  app_image               = "${var.app_image_repository}:${var.image_tag}"
+  github_token_secret_arn = data.aws_secretsmanager_secret.github-token.arn
 
   # ALB
   alb_security_group_id = data.terraform_remote_state.infra.outputs.alb_security_group_id
@@ -66,4 +69,9 @@ module "app" {
   enable_autoscaling     = true
 
   capacity_provider_strategy = var.capacity_provider_strategy
+
+  # Grafana Loki
+  grafana_loki_host               = "logs-prod-035.grafana.net"
+  grafana_loki_user               = var.grafana_loki_user
+  grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
 }
