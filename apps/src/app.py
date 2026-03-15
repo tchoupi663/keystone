@@ -8,17 +8,6 @@ import random
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
-# ── DEBUG: List files in the container on startup
-print(f"DEBUG: Current directory: {os.getcwd()}")
-print(f"DEBUG: Files in current directory: {os.listdir(os.getcwd())}")
-templates_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
-if os.path.exists(templates_path):
-    print(f"DEBUG: Templates path exists: {templates_path}")
-    print(f"DEBUG: Files in templates/: {os.listdir(templates_path)}")
-else:
-    print(f"DEBUG: Templates path MISSING: {templates_path}")
-
-
 # ──────────────────────────────────────────────
 # Infracost-based monthly cost estimates (USD)
 # Source: `infracost breakdown` across all stacks
