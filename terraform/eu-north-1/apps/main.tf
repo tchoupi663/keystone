@@ -60,8 +60,8 @@ module "apps" {
 
   # Container
   container_port = 80
-  task_cpu       = "256"
-  task_memory    = "512"
+  task_cpu       = "512"
+  task_memory    = "1024"
 
   desired_count          = 1
   enable_execute_command = false
