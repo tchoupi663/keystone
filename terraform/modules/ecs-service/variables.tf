@@ -99,8 +99,8 @@ variable "app_image" {
   type        = string
 }
 
-variable "github_token_ssm_parameter_arn" {
-  description = "ARN of the SSM Parameter containing the GitHub Packages access token"
+variable "github_token_secret_arn" {
+  description = "ARN of the AWS Secrets Manager secret containing the GitHub Packages access token (JSON with username and password keys)"
   type        = string
 }
 
@@ -220,4 +220,21 @@ variable "memory_scaling_target" {
   description = "Target memory utilisation percentage for auto-scaling"
   type        = number
   default     = 80
+}
+
+# ── ADDED ─────────────────────────────────────────────────────────
+
+variable "grafana_loki_host" {
+  description = "Grafana Cloud Loki host (e.g. logs-prod-eu-west-0.grafana.net). Found in Grafana Cloud → Connections → Loki → Connection details."
+  type        = string
+}
+
+variable "grafana_loki_user" {
+  description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
+  type        = string
+}
+
+variable "grafana_loki_api_key_secret_arn" {
+  description = "ARN of the AWS Secrets Manager secret that holds the Grafana Cloud API key (the Loki basic-auth password). The secret value should be the raw API key string, not JSON."
+  type        = string
 }
