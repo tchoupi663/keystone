@@ -17,5 +17,5 @@ github_token_secret_name = "keystone/dev/github-token"
 grafana_loki_user = "1511095"
 
 app_image_repository = "ghcr.io/tchoupi663/keystone"
-image_tag            = "app-1.0.5"
+image_tag            = "app-1.0.8"
 

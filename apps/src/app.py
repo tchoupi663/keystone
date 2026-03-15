@@ -6,7 +6,7 @@ import time
 import datetime
 import random
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
 # ──────────────────────────────────────────────
 # Infracost-based monthly cost estimates (USD)
