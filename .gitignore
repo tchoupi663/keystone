@@ -46,3 +46,6 @@ tfplan.json
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+
+.gemini/
+gha-creds-*.json

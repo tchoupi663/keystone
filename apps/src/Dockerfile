@@ -16,5 +16,5 @@ COPY . .
 # Flask typically runs on 5000
 EXPOSE 80
 
-# The command to start the app
-CMD ["python", "app.py"]
+# The command to start the app with OpenTelemetry instrumentation
+CMD ["opentelemetry-instrument", "python", "app.py"]

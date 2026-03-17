@@ -238,3 +238,69 @@ variable "grafana_loki_api_key_secret_arn" {
   description = "ARN of the AWS Secrets Manager secret that holds the Grafana Cloud API key (the Loki basic-auth password). The secret value should be the raw API key string, not JSON."
   type        = string
 }
+
+variable "grafana_prometheus_url" {
+  description = "Grafana Cloud Prometheus remote write URL (e.g. https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push)"
+  type        = string
+}
+
+variable "grafana_prometheus_user" {
+  description = "Grafana Cloud Prometheus numeric user ID"
+  type        = string
+}
+
+variable "grafana_tempo_url" {
+  description = "Grafana Cloud Tempo OTLP endpoint (e.g. tempo-prod-01-eu-west-0.grafana.net:443)"
+  type        = string
+}
+
+variable "grafana_tempo_user" {
+  description = "Grafana Cloud Tempo numeric user ID"
+  type        = string
+}
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling
+# ──────────────────────────────────────────────
+
+variable "enable_scheduled_scaling" {
+  description = "Enable scheduled scaling for the ECS service"
+  type        = bool
+  default     = false
+}
+
+variable "scale_down_cron" {
+  description = "Cron expression for scaling down (e.g., '0 22 * * ? *' for 10 PM)"
+  type        = string
+  default     = "0 22 * * ? *"
+}
+
+variable "scale_up_cron" {
+  description = "Cron expression for scaling up (e.g., '0 8 * * ? *' for 8 AM)"
+  type        = string
+  default     = "0 8 * * ? *"
+}
+
+variable "scale_down_min_capacity" {
+  description = "Minimum capacity during scale down period"
+  type        = number
+  default     = 0
+}
+
+variable "scale_down_max_capacity" {
+  description = "Maximum capacity during scale down period"
+  type        = number
+  default     = 0
+}
+
+variable "scale_up_min_capacity" {
+  description = "Minimum capacity during scale up period"
+  type        = number
+  default     = 1
+}
+
+variable "scale_up_max_capacity" {
+  description = "Maximum capacity during scale up period"
+  type        = number
+  default     = 4
+}

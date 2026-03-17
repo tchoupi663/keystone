@@ -6,6 +6,53 @@ locals {
   }
 
   container_name = "${var.project}-${var.environment}-app"
+
+  alloy_config = <<EOF
+logging {
+  level  = "debug"
+  format = "logfmt"
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "${var.grafana_prometheus_url}"
+    basic_auth {
+      username = "${var.grafana_prometheus_user}"
+      password = sys.env("GRAFANA_API_KEY")
+    }
+  }
+}
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    metrics = [otelcol.exporter.prometheus.grafana_cloud.input]
+    traces  = [otelcol.exporter.otlp.grafana_cloud.input]
+  }
+}
+
+otelcol.exporter.prometheus "grafana_cloud" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+  resource_to_telemetry_conversion = true
+}
+
+otelcol.exporter.otlp "grafana_cloud" {
+  client {
+    endpoint = "${var.grafana_tempo_url}"
+    auth     = otelcol.auth.basic.grafana_cloud.handler
+  }
+}
+
+otelcol.auth.basic "grafana_cloud" {
+  username = "${var.grafana_tempo_user}"
+  password = sys.env("GRAFANA_API_KEY")
+}
+EOF
 }
 
 # ──────────────────────────────────────────────
@@ -71,7 +118,8 @@ resource "aws_iam_role_policy" "ecs_execution" {
         # ── CHANGED: added fluent_bit log group so the sidecar can write its own meta-logs
         Resource = [
           "${aws_cloudwatch_log_group.app.arn}:*",
-          "${aws_cloudwatch_log_group.fluent_bit.arn}:*"
+          "${aws_cloudwatch_log_group.fluent_bit.arn}:*",
+          "${aws_cloudwatch_log_group.grafana_alloy.arn}:*"
         ]
       },
       # ── ADDED: allow execution role to resolve the Grafana API key at container startup
@@ -182,6 +230,16 @@ resource "aws_cloudwatch_log_group" "fluent_bit" {
   })
 }
 
+# ── ADDED: separate log group for Grafana Alloy
+resource "aws_cloudwatch_log_group" "grafana_alloy" {
+  name              = "/ecs/${var.project}-${var.environment}-grafana-alloy"
+  retention_in_days = var.log_retention_days
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-grafana-alloy-logs"
+  })
+}
+
 
 # ──────────────────────────────────────────────
 # ECS Task Definition
@@ -197,6 +255,53 @@ resource "aws_ecs_task_definition" "app" {
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
+
+    # ── ADDED: Grafana Alloy sidecar (Metrics and Traces)
+    {
+      name      = "grafana-alloy"
+      image     = "grafana/alloy:latest"
+      essential = true
+
+      entryPoint = [
+        "sh",
+        "-c",
+        "echo \"$ALLOY_CONFIG_CONTENT\" > /etc/alloy/config.alloy && exec /usr/bin/alloy run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy"
+      ]
+
+      environment = [
+        { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config }
+      ]
+
+      secrets = [
+        {
+          name      = "GRAFANA_API_KEY"
+          valueFrom = var.grafana_loki_api_key_secret_arn
+        }
+      ]
+
+      portMappings = [
+        {
+          containerPort = 4317 # OTLP gRPC
+          protocol      = "tcp"
+        },
+        {
+          containerPort = 4318 # OTLP HTTP
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.grafana_alloy.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "alloy"
+        }
+      }
+
+      # Reserve 128MB for Alloy
+      memory = 128
+    },
 
     # ── ADDED: Fluent Bit sidecar (FireLens log router)
     # Must be declared before the app container so ECS starts it first.
@@ -258,6 +363,12 @@ resource "aws_ecs_task_definition" "app" {
         { name = "DB_HOST", value = var.db_host },
         { name = "DB_NAME", value = var.db_name },
         { name = "DB_PORT", value = tostring(var.db_port) },
+        # Tracing & Metrics configuration
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318" },
+        { name = "OTEL_SERVICE_NAME", value = local.container_name },
+        { name = "OTEL_METRICS_EXPORTER", value = "otlp" },
+        { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
+        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "deployment.environment=${var.environment},service.namespace=${var.project}" }
       ]
 
       secrets = [
@@ -298,10 +409,14 @@ resource "aws_ecs_task_definition" "app" {
         ]
       }
 
-      # ── Ensure app starts only after the log router is ready
+      # ── Ensure app starts only after the log router and Alloy are ready
       dependsOn = [
         {
           containerName = "log_router"
+          condition     = "START"
+        },
+        {
+          containerName = "grafana-alloy"
           condition     = "START"
         }
       ]
@@ -428,5 +543,39 @@ resource "aws_appautoscaling_policy" "memory" {
     target_value       = var.memory_scaling_target
     scale_in_cooldown  = 300
     scale_out_cooldown = 60
+  }
+}
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling
+# ──────────────────────────────────────────────
+
+resource "aws_appautoscaling_scheduled_action" "scale_down" {
+  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+
+  name               = "${var.project}-${var.environment}-scale-down"
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  schedule           = "cron(${var.scale_down_cron})"
+
+  scalable_target_action {
+    min_capacity = var.scale_down_min_capacity
+    max_capacity = var.scale_down_max_capacity
+  }
+}
+
+resource "aws_appautoscaling_scheduled_action" "scale_up" {
+  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+
+  name               = "${var.project}-${var.environment}-scale-up"
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  schedule           = "cron(${var.scale_up_cron})"
+
+  scalable_target_action {
+    min_capacity = var.scale_up_min_capacity
+    max_capacity = var.scale_up_max_capacity
   }
 }
