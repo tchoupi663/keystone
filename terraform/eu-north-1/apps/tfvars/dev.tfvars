@@ -23,5 +23,5 @@ grafana_tempo_url  = "tempo-prod-25-prod-gb-south-1.grafana.net:443"
 grafana_tempo_user = "1505400"
 
 app_image_repository = "ghcr.io/tchoupi663/keystone"
-image_tag            = "app-1.0.12"
+image_tag            = "app-1.0.13"
 
