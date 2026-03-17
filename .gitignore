@@ -49,3 +49,5 @@ tfplan.json
 
 .gemini/
 gha-creds-*.json
+
+gemini*
