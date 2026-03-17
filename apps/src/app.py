@@ -5,8 +5,61 @@ import threading
 import time
 import datetime
 import random
+import logging
+
+# ──────────────────────────────────────────────
+# OpenTelemetry Setup
+# ──────────────────────────────────────────────
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+from opentelemetry.instrumentation.runtime import RuntimeInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+# Resource attributes (service name, etc.)
+resource = Resource.create({
+    "service.name": os.environ.get("OTEL_SERVICE_NAME", "keystone-app"),
+    "deployment.environment": os.environ.get("OTEL_RESOURCE_ATTRIBUTES", "").split("deployment.environment=")[-1].split(",")[0] if "deployment.environment=" in os.environ.get("OTEL_RESOURCE_ATTRIBUTES", "") else "unknown"
+})
+
+# Tracer Setup
+tracer_provider = TracerProvider(resource=resource)
+otlp_trace_exporter = OTLPSpanExporter(
+    endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+    insecure=True
+)
+tracer_provider.add_span_processor(BatchSpanProcessor(otlp_trace_exporter))
+trace.set_tracer_provider(tracer_provider)
+
+# Metrics Setup
+otlp_metric_exporter = OTLPMetricExporter(
+    endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+    insecure=True
+)
+metric_reader = PeriodicExportingMetricReader(otlp_metric_exporter, export_interval_millis=15000)
+meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+metrics.set_meter_provider(meter_provider)
+
+# Logging Correlation
+LoggingInstrumentor().instrument(set_logging_format=True)
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
+
+# Instrument Flask
+FlaskInstrumentor().instrument_app(app)
+
+# Instrument Psycopg (v3)
+PsycopgInstrumentor().instrument()
+
+# Instrument Python Runtime Metrics
+RuntimeInstrumentor().instrument()
 
 # ──────────────────────────────────────────────
 # Infracost-based monthly cost estimates (USD)

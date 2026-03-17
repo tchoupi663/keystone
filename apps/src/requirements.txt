@@ -3,5 +3,9 @@ psycopg[binary]
 Werkzeug==3.1.6
 opentelemetry-api
 opentelemetry-sdk
+opentelemetry-distro
 opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-runtime
+opentelemetry-instrumentation-psycopg
+opentelemetry-instrumentation-logging
 opentelemetry-exporter-otlp
