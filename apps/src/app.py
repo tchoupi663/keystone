@@ -20,7 +20,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
-from opentelemetry.instrumentation.runtime import RuntimeInstrumentor
+from opentelemetry.instrumentation.runtime_metrics import RuntimeMetricsInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
 # Resource attributes (service name, etc.)
@@ -59,7 +59,7 @@ FlaskInstrumentor().instrument_app(app)
 PsycopgInstrumentor().instrument()
 
 # Instrument Python Runtime Metrics
-RuntimeInstrumentor().instrument()
+RuntimeMetricsInstrumentor().instrument()
 
 # ──────────────────────────────────────────────
 # Infracost-based monthly cost estimates (USD)

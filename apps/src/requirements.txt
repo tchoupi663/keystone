@@ -5,7 +5,7 @@ opentelemetry-api
 opentelemetry-sdk
 opentelemetry-distro
 opentelemetry-instrumentation-flask
-opentelemetry-instrumentation-runtime
+opentelemetry-instrumentation-runtime-metrics
 opentelemetry-instrumentation-psycopg
 opentelemetry-instrumentation-logging
 opentelemetry-exporter-otlp
