@@ -67,6 +67,15 @@ module "apps" {
   enable_execute_command = false
   log_retention_days     = 14
   enable_autoscaling     = true
+  enable_scheduled_scaling = true
+
+  # Nightly scale down
+  scale_down_cron         = "0 20 * * ? *"
+  scale_up_cron           = "0 7 * * ? *"
+  scale_down_min_capacity = 0
+  scale_down_max_capacity = 0
+  scale_up_min_capacity   = 1
+  scale_up_max_capacity   = 1
 
   capacity_provider_strategy = var.capacity_provider_strategy
 
@@ -74,4 +83,12 @@ module "apps" {
   grafana_loki_host               = "logs-prod-035.grafana.net"
   grafana_loki_user               = var.grafana_loki_user
   grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
+
+  # Grafana Prometheus (Metrics)
+  grafana_prometheus_url  = var.grafana_prometheus_url
+  grafana_prometheus_user = var.grafana_prometheus_user
+
+  # Grafana Tempo (Traces)
+  grafana_tempo_url  = var.grafana_tempo_url
+  grafana_tempo_user = var.grafana_tempo_user
 }

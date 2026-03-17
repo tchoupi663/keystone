@@ -51,3 +51,27 @@ variable "grafana_loki_user" {
   description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
   type        = string
 }
+
+variable "grafana_prometheus_url" {
+  description = "Grafana Cloud Prometheus remote write URL"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_prometheus_user" {
+  description = "Grafana Cloud Prometheus numeric user ID"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_tempo_url" {
+  description = "Grafana Cloud Tempo OTLP endpoint"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_tempo_user" {
+  description = "Grafana Cloud Tempo numeric user ID"
+  type        = string
+  default     = ""
+}
