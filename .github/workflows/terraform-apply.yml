@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: terramate-io/terramate-action@v2
+      - uses: terramate-io/terramate-action@v3
 
       - name: Detect changed stacks
         id: changed
@@ -56,7 +56,7 @@ jobs:
             -o /usr/local/bin/terragrunt
           chmod +x /usr/local/bin/terragrunt
 
-      - uses: terramate-io/terramate-action@v2
+      - uses: terramate-io/terramate-action@v3
 
       - name: Terramate generate
         run: terramate generate
