@@ -61,3 +61,13 @@ variable "grafana_prometheus_user" {
   description = "Grafana Cloud Prometheus numeric user ID."
   type        = string
 }
+
+variable "grafana_tempo_endpoint" {
+  description = "Grafana Cloud Tempo remote-write URL"
+  type        = string
+}
+
+variable "grafana_tempo_user" {
+  description = "Grafana Cloud Tempo numeric user ID."
+  type        = string
+}

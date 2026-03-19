@@ -87,4 +87,8 @@ module "apps" {
   # Grafana Prometheus
   grafana_prometheus_url          = var.grafana_prometheus_url
   grafana_prometheus_user         = var.grafana_prometheus_user
+
+  # Grafana Tempo
+  grafana_tempo_endpoint          = var.grafana_tempo_endpoint
+  grafana_tempo_user              = var.grafana_tempo_user
 }

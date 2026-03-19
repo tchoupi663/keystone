@@ -25,6 +25,31 @@ locals {
         }
       }
     }
+
+    otelcol.receiver.otlp "otlp_receiver" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+
+      output {
+        traces = [otelcol.exporter.otlp.grafanacloud.input]
+      }
+    }
+
+    otelcol.exporter.otlp "grafanacloud" {
+      client {
+        endpoint = "$${var.grafana_tempo_endpoint}"
+        auth     = otelcol.auth.basic.grafanacloud.handler
+      }
+    }
+
+    otelcol.auth.basic "grafanacloud" {
+      username = "$${var.grafana_tempo_user}"
+      password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
+    }
   EOT
   )
 }

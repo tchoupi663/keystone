@@ -8,7 +8,28 @@ import datetime
 import random
 import logging
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+
+# Initialize Tracing Provider
+resource = Resource.create({"service.name": "keystone-app"})
+provider = TracerProvider(resource=resource)
+# Grafana Alloy OTLP HTTP receiver via sidecar networking
+exporter = OTLPSpanExporter(endpoint="http://localhost:4318/v1/traces")
+provider.add_span_processor(BatchSpanProcessor(exporter))
+trace.set_tracer_provider(provider)
+
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
+
+# Instrument Flask & DB
+FlaskInstrumentor().instrument_app(app)
+PsycopgInstrumentor().instrument()
+
 metrics = PrometheusMetrics(app)
 
 # static information as metric
