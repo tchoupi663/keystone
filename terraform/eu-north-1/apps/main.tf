@@ -84,11 +84,7 @@ module "apps" {
   grafana_loki_user               = var.grafana_loki_user
   grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
 
-  # Grafana Prometheus (Metrics)
-  grafana_prometheus_url  = var.grafana_prometheus_url
-  grafana_prometheus_user = var.grafana_prometheus_user
-
-  # Grafana Tempo (Traces)
-  grafana_tempo_url  = var.grafana_tempo_url
-  grafana_tempo_user = var.grafana_tempo_user
+  # Grafana Prometheus
+  grafana_prometheus_url          = var.grafana_prometheus_url
+  grafana_prometheus_user         = var.grafana_prometheus_user
 }

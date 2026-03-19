@@ -30,6 +30,8 @@ resource "aws_db_instance" "this" {
   engine_version = var.engine_version
   port           = var.port
 
+  snapshot_identifier = var.snapshot_identifier
+
   # Sizing
   instance_class    = var.instance_class
   allocated_storage = var.allocated_storage

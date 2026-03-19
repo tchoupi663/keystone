@@ -15,3 +15,9 @@ variable "project" {
   type        = string
   default     = "keystone"
 }
+
+variable "snapshot_identifier" {
+  description = "Restore RDS from this snapshot ID if provided"
+  type        = string
+  default     = null
+}

@@ -240,24 +240,15 @@ variable "grafana_loki_api_key_secret_arn" {
 }
 
 variable "grafana_prometheus_url" {
-  description = "Grafana Cloud Prometheus remote write URL (e.g. https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push)"
+  description = "Grafana Cloud Prometheus remote-write URL"
   type        = string
 }
 
 variable "grafana_prometheus_user" {
-  description = "Grafana Cloud Prometheus numeric user ID"
+  description = "Grafana Cloud Prometheus numeric user ID."
   type        = string
 }
 
-variable "grafana_tempo_url" {
-  description = "Grafana Cloud Tempo OTLP endpoint (e.g. tempo-prod-01-eu-west-0.grafana.net:443)"
-  type        = string
-}
-
-variable "grafana_tempo_user" {
-  description = "Grafana Cloud Tempo numeric user ID"
-  type        = string
-}
 
 # ──────────────────────────────────────────────
 # Scheduled Scaling

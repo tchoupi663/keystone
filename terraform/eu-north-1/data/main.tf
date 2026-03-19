@@ -44,7 +44,9 @@ module "rds" {
   deletion_protection = false
   skip_final_snapshot = true
 
+  snapshot_identifier = var.snapshot_identifier
+
   # Encryption & Monitoring
-  storage_encrypted            = true
-  performance_insights_enabled = true
+  storage_encrypted            = false
+  performance_insights_enabled = false
 }

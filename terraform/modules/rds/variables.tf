@@ -180,3 +180,9 @@ variable "allow_major_version_upgrade" {
   type        = bool
   default     = false
 }
+
+variable "snapshot_identifier" {
+  description = "The name of the snapshot (optional) to use when creating the DB instance. If provided, the DB will be restored from this snapshot."
+  type        = string
+  default     = null
+}

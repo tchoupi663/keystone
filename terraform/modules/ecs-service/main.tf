@@ -7,52 +7,26 @@ locals {
 
   container_name = "${var.project}-${var.environment}-app"
 
-  alloy_config = <<EOF
-logging {
-  level  = "debug"
-  format = "logfmt"
-}
-
-prometheus.remote_write "grafana_cloud" {
-  endpoint {
-    url = "${var.grafana_prometheus_url}"
-    basic_auth {
-      username = "${var.grafana_prometheus_user}"
-      password = sys.env("GRAFANA_API_KEY")
+  alloy_config_b64 = base64encode(<<-EOT
+    prometheus.scrape "flask_app" {
+      targets = [
+        {"__address__" = "localhost:${var.container_port}"},
+      ]
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      scrape_interval = "15s"
     }
-  }
-}
 
-otelcol.receiver.otlp "default" {
-  grpc {
-    endpoint = "0.0.0.0:4317"
-  }
-  http {
-    endpoint = "0.0.0.0:4318"
-  }
-  output {
-    metrics = [otelcol.exporter.prometheus.grafana_cloud.input]
-    traces  = [otelcol.exporter.otlp.grafana_cloud.input]
-  }
-}
-
-otelcol.exporter.prometheus "grafana_cloud" {
-  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-  resource_to_telemetry_conversion = true
-}
-
-otelcol.exporter.otlp "grafana_cloud" {
-  client {
-    endpoint = "${var.grafana_tempo_url}"
-    auth     = otelcol.auth.basic.grafana_cloud.handler
-  }
-}
-
-otelcol.auth.basic "grafana_cloud" {
-  username = "${var.grafana_tempo_user}"
-  password = sys.env("GRAFANA_API_KEY")
-}
-EOF
+    prometheus.remote_write "grafana_cloud" {
+      endpoint {
+        url = "${var.grafana_prometheus_url}"
+        basic_auth {
+          username = "${var.grafana_prometheus_user}"
+          password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
+        }
+      }
+    }
+  EOT
+  )
 }
 
 # ──────────────────────────────────────────────
@@ -119,7 +93,7 @@ resource "aws_iam_role_policy" "ecs_execution" {
         Resource = [
           "${aws_cloudwatch_log_group.app.arn}:*",
           "${aws_cloudwatch_log_group.fluent_bit.arn}:*",
-          "${aws_cloudwatch_log_group.grafana_alloy.arn}:*"
+          "${aws_cloudwatch_log_group.alloy.arn}:*"
         ]
       },
       # ── ADDED: allow execution role to resolve the Grafana API key at container startup
@@ -230,13 +204,12 @@ resource "aws_cloudwatch_log_group" "fluent_bit" {
   })
 }
 
-# ── ADDED: separate log group for Grafana Alloy
-resource "aws_cloudwatch_log_group" "grafana_alloy" {
-  name              = "/ecs/${var.project}-${var.environment}-grafana-alloy"
+resource "aws_cloudwatch_log_group" "alloy" {
+  name              = "/ecs/${var.project}-${var.environment}-alloy"
   retention_in_days = var.log_retention_days
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.environment}-grafana-alloy-logs"
+    Name = "${var.project}-${var.environment}-alloy-logs"
   })
 }
 
@@ -256,22 +229,27 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
 
-    # ── ADDED: Grafana Alloy sidecar (Metrics and Traces)
+    # ── ADDED: Grafana Alloy sidecar for Prometheus metrics
     {
-      name      = "grafana-alloy"
-      image     = "grafana/alloy:latest"
+      name  = "alloy"
+      image = "grafana/alloy:latest"
       essential = true
 
-      entryPoint = [
-        "sh",
-        "-c",
-        "echo \"$ALLOY_CONFIG_CONTENT\" > /etc/alloy/config.alloy && exec /usr/bin/alloy run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy"
-      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.alloy.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "alloy"
+        }
+      }
+
+      memory = 128
 
       environment = [
-        { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config }
+        { name = "ALLOY_CONFIG_B64", value = local.alloy_config_b64 }
       ]
-
+      
       secrets = [
         {
           name      = "GRAFANA_API_KEY"
@@ -279,28 +257,8 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      portMappings = [
-        {
-          containerPort = 4317 # OTLP gRPC
-          protocol      = "tcp"
-        },
-        {
-          containerPort = 4318 # OTLP HTTP
-          protocol      = "tcp"
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.grafana_alloy.name
-          "awslogs-region"        = var.region
-          "awslogs-stream-prefix" = "alloy"
-        }
-      }
-
-      # Reserve 128MB for Alloy
-      memory = 128
+      entryPoint = ["sh", "-c"]
+      command    = ["echo \"$ALLOY_CONFIG_B64\" | base64 -d > /tmp/config.alloy && /bin/alloy run /tmp/config.alloy"]
     },
 
     # ── ADDED: Fluent Bit sidecar (FireLens log router)
@@ -362,13 +320,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "DB_HOST", value = var.db_host },
         { name = "DB_NAME", value = var.db_name },
-        { name = "DB_PORT", value = tostring(var.db_port) },
-        # Tracing & Metrics configuration
-        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318" },
-        { name = "OTEL_SERVICE_NAME", value = local.container_name },
-        { name = "OTEL_METRICS_EXPORTER", value = "otlp" },
-        { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
-        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "deployment.environment=${var.environment},service.namespace=${var.project}" }
+        { name = "DB_PORT", value = tostring(var.db_port) }
       ]
 
       secrets = [
@@ -409,14 +361,10 @@ resource "aws_ecs_task_definition" "app" {
         ]
       }
 
-      # ── Ensure app starts only after the log router and Alloy are ready
+      # ── Ensure app starts only after the log router is ready
       dependsOn = [
         {
           containerName = "log_router"
-          condition     = "START"
-        },
-        {
-          containerName = "grafana-alloy"
           condition     = "START"
         }
       ]
