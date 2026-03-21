@@ -99,8 +99,8 @@ variable "app_image" {
   type        = string
 }
 
-variable "github_token_ssm_parameter_arn" {
-  description = "ARN of the SSM Parameter containing the GitHub Packages access token"
+variable "github_token_secret_arn" {
+  description = "ARN of the AWS Secrets Manager secret containing the GitHub Packages access token (JSON with username and password keys)"
   type        = string
 }
 
@@ -113,13 +113,13 @@ variable "container_port" {
 variable "task_cpu" {
   description = "CPU units for the Fargate task (256 = 0.25 vCPU)"
   type        = string
-  default     = "256"
+  default     = "512"
 }
 
 variable "task_memory" {
   description = "Memory (MiB) for the Fargate task"
   type        = string
-  default     = "512"
+  default     = "1024"
 }
 
 
@@ -220,4 +220,89 @@ variable "memory_scaling_target" {
   description = "Target memory utilisation percentage for auto-scaling"
   type        = number
   default     = 80
+}
+
+# ── ADDED ─────────────────────────────────────────────────────────
+
+variable "grafana_loki_host" {
+  description = "Grafana Cloud Loki host (e.g. logs-prod-eu-west-0.grafana.net). Found in Grafana Cloud → Connections → Loki → Connection details."
+  type        = string
+}
+
+variable "grafana_loki_user" {
+  description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
+  type        = string
+}
+
+variable "grafana_loki_api_key_secret_arn" {
+  description = "ARN of the AWS Secrets Manager secret that holds the Grafana Cloud API key (the Loki basic-auth password). The secret value should be the raw API key string, not JSON."
+  type        = string
+}
+
+variable "grafana_prometheus_url" {
+  description = "Grafana Cloud Prometheus remote-write URL"
+  type        = string
+}
+
+variable "grafana_prometheus_user" {
+  description = "Grafana Cloud Prometheus numeric user ID."
+  type        = string
+}
+
+variable "grafana_tempo_endpoint" {
+  description = "Grafana Cloud Tempo remote-write URL"
+  type        = string
+}
+
+variable "grafana_tempo_user" {
+  description = "Grafana Cloud Tempo numeric user ID."
+  type        = string
+}
+
+
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling
+# ──────────────────────────────────────────────
+
+variable "enable_scheduled_scaling" {
+  description = "Enable scheduled scaling for the ECS service"
+  type        = bool
+  default     = false
+}
+
+variable "scale_down_cron" {
+  description = "Cron expression for scaling down (e.g., '0 22 * * ? *' for 10 PM)"
+  type        = string
+  default     = "0 22 * * ? *"
+}
+
+variable "scale_up_cron" {
+  description = "Cron expression for scaling up (e.g., '0 8 * * ? *' for 8 AM)"
+  type        = string
+  default     = "0 8 * * ? *"
+}
+
+variable "scale_down_min_capacity" {
+  description = "Minimum capacity during scale down period"
+  type        = number
+  default     = 0
+}
+
+variable "scale_down_max_capacity" {
+  description = "Maximum capacity during scale down period"
+  type        = number
+  default     = 0
+}
+
+variable "scale_up_min_capacity" {
+  description = "Minimum capacity during scale up period"
+  type        = number
+  default     = 1
+}
+
+variable "scale_up_max_capacity" {
+  description = "Maximum capacity during scale up period"
+  type        = number
+  default     = 4
 }

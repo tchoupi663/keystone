@@ -6,6 +6,95 @@ locals {
   }
 
   container_name = "${var.project}-${var.environment}-app"
+
+  alloy_config_b64 = base64encode(<<-EOT
+    prometheus.scrape "flask_app" {
+      targets = [
+        {"__address__" = "localhost:${var.container_port}"},
+      ]
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      scrape_interval = "60s"
+    }
+
+    prometheus.remote_write "grafana_cloud" {
+      endpoint {
+        url = "${var.grafana_prometheus_url}"
+        basic_auth {
+          username = "${var.grafana_prometheus_user}"
+          password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
+        }
+      }
+    }
+
+    otelcol.receiver.otlp "otlp_receiver" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+
+      output {
+        traces = [otelcol.processor.transform.add_peer_service.input]
+        logs = [otelcol.exporter.loki.grafanacloud.input]
+      }
+    }
+
+    otelcol.processor.transform "add_peer_service" {
+      error_mode = "ignore"
+      trace_statements {
+        context = "span"
+        statements = [
+          "set(attributes[\"peer.service\"], attributes[\"db.system\"]) where attributes[\"peer.service\"] == nil and attributes[\"db.system\"] != nil",
+        ]
+      }
+      output {
+        traces = [
+          otelcol.exporter.otlp.grafanacloud.input,
+          otelcol.connector.servicegraph.default.input,
+        ]
+      }
+    }
+
+    loki.write "grafanacloud" {
+      endpoint {
+        url = "https://${var.grafana_loki_host}/loki/api/v1/push"
+        basic_auth {
+          username = "${var.grafana_loki_user}"
+          password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
+        }
+      }
+    }
+
+    otelcol.exporter.loki "grafanacloud" {
+      forward_to = [loki.write.grafanacloud.receiver]
+    }
+
+    otelcol.connector.servicegraph "default" {
+      dimensions = ["http.method", "http.target"]
+      output {
+        metrics = [otelcol.exporter.prometheus.servicegraphs.input]
+      }
+    }
+
+    otelcol.exporter.prometheus "servicegraphs" {
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      add_metric_suffixes = false
+    }
+
+    otelcol.exporter.otlp "grafanacloud" {
+      client {
+        endpoint = "${var.grafana_tempo_endpoint}"
+        auth     = otelcol.auth.basic.grafanacloud.handler
+      }
+    }
+
+    otelcol.auth.basic "grafanacloud" {
+      username = "${var.grafana_tempo_user}"
+      password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
+    }
+  EOT
+  )
 }
 
 # ──────────────────────────────────────────────
@@ -26,7 +115,6 @@ resource "aws_security_group_rule" "rds_ingress_from_ecs" {
 # ──────────────────────────────────────────────
 # IAM — Task Execution Role (used by ECS agent)
 # ──────────────────────────────────────────────
-# Permissions: pull images from ECR, push logs, read secrets
 
 resource "aws_iam_role" "ecs_execution" {
   name = "${var.project}-${var.environment}-ecs-execution-role"
@@ -59,10 +147,8 @@ resource "aws_iam_role_policy" "ecs_execution" {
       {
         Sid    = "SSMAuth"
         Effect = "Allow"
-        Action = [
-          "ssm:GetParameters"
-        ]
-        Resource = [var.github_token_ssm_parameter_arn]
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [var.github_token_secret_arn]
       },
       {
         Sid    = "CloudWatchLogs"
@@ -71,13 +157,25 @@ resource "aws_iam_role_policy" "ecs_execution" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = ["${aws_cloudwatch_log_group.app.arn}:*"]
+        # ── CHANGED: removed fluent_bit from log groups
+        Resource = [
+          "${aws_cloudwatch_log_group.app.arn}:*",
+          "${aws_cloudwatch_log_group.alloy.arn}:*"
+        ]
+      },
+      # ── ADDED: allow execution role to resolve the Grafana API key at container startup
+      # This is needed because the key is passed via `secretOptions` in logConfiguration,
+      # which ECS resolves using the *execution* role (not the task role).
+      {
+        Sid    = "GrafanaSecret"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [var.grafana_loki_api_key_secret_arn]
       }
     ]
   })
 }
 
-# Allow the execution role to read the RDS master password from Secrets Manager
 resource "aws_iam_policy" "secrets_read" {
   name        = "${var.project}-${var.environment}-ecs-secrets-read"
   description = "Allow ECS execution role to read RDS credentials from Secrets Manager"
@@ -86,10 +184,8 @@ resource "aws_iam_policy" "secrets_read" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.db_master_user_secret_arn]
       }
     ]
@@ -127,10 +223,6 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
-
-
-
-# ECS Exec (SSH-like access into running containers for debugging)
 resource "aws_iam_role_policy" "ecs_exec" {
   count = var.enable_execute_command ? 1 : 0
   name  = "${var.project}-${var.environment}-ecs-exec"
@@ -155,7 +247,7 @@ resource "aws_iam_role_policy" "ecs_exec" {
 
 
 # ──────────────────────────────────────────────
-# CloudWatch Log Group
+# CloudWatch Log Groups
 # ──────────────────────────────────────────────
 
 resource "aws_cloudwatch_log_group" "app" {
@@ -164,6 +256,15 @@ resource "aws_cloudwatch_log_group" "app" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.environment}-ecs-logs"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "alloy" {
+  name              = "/ecs/${var.project}-${var.environment}-alloy"
+  retention_in_days = var.log_retention_days
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-alloy-logs"
   })
 }
 
@@ -182,12 +283,46 @@ resource "aws_ecs_task_definition" "app" {
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
+
+    # ── ADDED: Grafana Alloy sidecar for Prometheus metrics
+    {
+      name  = "alloy"
+      image = "grafana/alloy:latest"
+      essential = true
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.alloy.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "alloy"
+        }
+      }
+
+      memory = 128
+
+      environment = [
+        { name = "ALLOY_CONFIG_B64", value = local.alloy_config_b64 }
+      ]
+      
+      secrets = [
+        {
+          name      = "GRAFANA_API_KEY"
+          valueFrom = var.grafana_loki_api_key_secret_arn
+        }
+      ]
+
+      entryPoint = ["sh", "-c"]
+      command    = ["echo \"$ALLOY_CONFIG_B64\" | base64 -d > /tmp/config.alloy && /bin/alloy run /tmp/config.alloy"]
+    },
+
+    # ── Application container (standard awslogs driver, application logs go directly to Alloy via OTLP layer)
     {
       name      = local.container_name
       image     = var.app_image
       essential = true
       repositoryCredentials = {
-        credentialsParameter = var.github_token_ssm_parameter_arn
+        credentialsParameter = var.github_token_secret_arn
       }
 
       portMappings = [
@@ -201,7 +336,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "DB_HOST", value = var.db_host },
         { name = "DB_NAME", value = var.db_name },
-        { name = "DB_PORT", value = tostring(var.db_port) },
+        { name = "DB_PORT", value = tostring(var.db_port) }
       ]
 
       secrets = [
@@ -220,7 +355,7 @@ resource "aws_ecs_task_definition" "app" {
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.app.name
           "awslogs-region"        = var.region
-          "awslogs-stream-prefix" = "ecs"
+          "awslogs-stream-prefix" = "app"
         }
       }
 
@@ -285,10 +420,8 @@ resource "aws_ecs_service" "app" {
     type = "ECS"
   }
 
-  # Allow the ALB to drain existing connections before killing tasks
   health_check_grace_period_seconds = var.health_check_grace_period
 
-  # Ignore desired_count changes after initial deploy (auto-scaling may change it)
   lifecycle {
     ignore_changes = [desired_count]
   }
@@ -300,7 +433,7 @@ resource "aws_ecs_service" "app" {
 
 
 # ──────────────────────────────────────────────
-# Auto Scaling (optional, enabled by default)
+# Auto Scaling (unchanged)
 # ──────────────────────────────────────────────
 
 resource "aws_appautoscaling_target" "ecs" {
@@ -348,5 +481,39 @@ resource "aws_appautoscaling_policy" "memory" {
     target_value       = var.memory_scaling_target
     scale_in_cooldown  = 300
     scale_out_cooldown = 60
+  }
+}
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling
+# ──────────────────────────────────────────────
+
+resource "aws_appautoscaling_scheduled_action" "scale_down" {
+  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+
+  name               = "${var.project}-${var.environment}-scale-down"
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  schedule           = "cron(${var.scale_down_cron})"
+
+  scalable_target_action {
+    min_capacity = var.scale_down_min_capacity
+    max_capacity = var.scale_down_max_capacity
+  }
+}
+
+resource "aws_appautoscaling_scheduled_action" "scale_up" {
+  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+
+  name               = "${var.project}-${var.environment}-scale-up"
+  service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
+  resource_id        = aws_appautoscaling_target.ecs[0].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs[0].scalable_dimension
+  schedule           = "cron(${var.scale_up_cron})"
+
+  scalable_target_action {
+    min_capacity = var.scale_up_min_capacity
+    max_capacity = var.scale_up_max_capacity
   }
 }

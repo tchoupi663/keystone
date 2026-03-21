@@ -1,16 +1,19 @@
 variable "region" {
-  description = "AWS region"
+  description = "Define the region"
   type        = string
+  default     = "eu-north-1"
 }
 
 variable "environment" {
-  description = "Environment name"
+  description = "Define the environment"
   type        = string
+  default     = "dev"
 }
 
 variable "project" {
-  description = "Project name"
+  description = "Define the project"
   type        = string
+  default     = "keystone"
 }
 
 variable "capacity_provider_strategy" {
@@ -39,7 +42,32 @@ variable "app_image_repository" {
   type        = string
 }
 
-variable "github_token_ssm_parameter_name" {
-  description = "Name of the SSM Parameter storing the GitHub Packages access token"
+variable "github_token_secret_name" {
+  description = "Name of the AWS Secrets Manager secret storing the GitHub Packages access token (JSON with username and password keys)"
+  type        = string
+}
+
+variable "grafana_loki_user" {
+  description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
+  type        = string
+}
+
+variable "grafana_prometheus_url" {
+  description = "Grafana Cloud Prometheus remote-write URL"
+  type        = string
+}
+
+variable "grafana_prometheus_user" {
+  description = "Grafana Cloud Prometheus numeric user ID."
+  type        = string
+}
+
+variable "grafana_tempo_endpoint" {
+  description = "Grafana Cloud Tempo remote-write URL"
+  type        = string
+}
+
+variable "grafana_tempo_user" {
+  description = "Grafana Cloud Tempo numeric user ID."
   type        = string
 }

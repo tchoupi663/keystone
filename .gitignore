@@ -7,7 +7,7 @@ TODO
 TODO/
 todo*
 
-temp*
+temp.txt
 
 .env
 .env/
@@ -46,3 +46,9 @@ tfplan.json
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+
+.gemini/
+gha-creds-*.json
+
+gemini*
+commands

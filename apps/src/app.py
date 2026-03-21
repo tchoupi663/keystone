@@ -1,12 +1,60 @@
 from flask import Flask, render_template, jsonify
+from prometheus_flask_exporter import PrometheusMetrics
 import os
 import psycopg
 import threading
 import time
 import datetime
 import random
+import logging
 
-app = Flask(__name__)
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+# Import OTel Logging components
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+
+# Initialize Tracing Provider
+resource = Resource.create({"service.name": "keystone-app"})
+provider = TracerProvider(resource=resource)
+# Grafana Alloy OTLP HTTP receiver (traces)
+exporter = OTLPSpanExporter(endpoint="http://localhost:4318/v1/traces")
+provider.add_span_processor(BatchSpanProcessor(exporter))
+trace.set_tracer_provider(provider)
+
+# Initialize Logging Provider
+logger_provider = LoggerProvider(resource=resource)
+set_logger_provider(logger_provider)
+log_exporter = OTLPLogExporter(endpoint="http://localhost:4318/v1/logs")
+logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
+
+# Attached OTel handler to root python logger
+otel_handler = LoggingHandler(level=logging.INFO, logger_provider=logger_provider)
+logging.getLogger().addHandler(otel_handler)
+logging.getLogger().setLevel(logging.INFO)
+
+# Also capture Werkzeug request logs
+logging.getLogger('werkzeug').addHandler(otel_handler)
+
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
+
+# Instrument Flask & DB
+FlaskInstrumentor().instrument_app(app)
+PsycopgInstrumentor().instrument()
+
+metrics = PrometheusMetrics(app, group_by='endpoint')
+
+# static information as metric
+metrics.info('app_info', 'Application info', version='1.0.17')
 
 # ──────────────────────────────────────────────
 # Infracost-based monthly cost estimates (USD)
@@ -147,7 +195,7 @@ def init_db(max_retries=12, retry_delay=5):
         sql_script = f.read()
 
     for attempt in range(1, max_retries + 1):
-        print(f"DB init attempt {attempt}/{max_retries}...")
+        logging.info(f"DB init attempt {attempt}/{max_retries}...")
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -155,14 +203,14 @@ def init_db(max_retries=12, retry_delay=5):
             conn.commit()
             cur.close()
             conn.close()
-            print("Database initialised successfully!")
+            logging.info("Database initialised successfully!")
             return
         except Exception as e:
-            print(f"DB not ready yet: {e}")
+            logging.info(f"DB not ready yet: {e}")
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
-    print("WARNING: Could not initialise the database after all retries.")
+    logging.info("WARNING: Could not initialise the database after all retries.")
 
 
 # ──────────────────────────────────────────────
@@ -183,7 +231,7 @@ def update_costs():
     AVG_DAYS_PER_MONTH = 30.44
 
     while True:
-        print("Updating cost data...")
+        logging.info("Updating cost data...")
         try:
             now = datetime.datetime.utcnow()
             today = now.date()
@@ -220,9 +268,9 @@ def update_costs():
             conn.commit()
             cur.close()
             conn.close()
-            print("Cost data updated successfully.")
+            logging.info("Cost data updated successfully.")
         except Exception as e:
-            print(f"Failed to update cost data: {e}")
+            logging.info(f"Failed to update cost data: {e}")
 
         # Refresh every hour
         time.sleep(3600)
