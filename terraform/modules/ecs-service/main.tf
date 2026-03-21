@@ -13,7 +13,7 @@ locals {
         {"__address__" = "localhost:${var.container_port}"},
       ]
       forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-      scrape_interval = "15s"
+      scrape_interval = "60s"
     }
 
     prometheus.remote_write "grafana_cloud" {
@@ -35,11 +35,24 @@ locals {
       }
 
       output {
+        traces = [otelcol.processor.transform.add_peer_service.input]
+        logs = [otelcol.exporter.loki.grafanacloud.input]
+      }
+    }
+
+    otelcol.processor.transform "add_peer_service" {
+      error_mode = "ignore"
+      trace_statements {
+        context = "span"
+        statements = [
+          "set(attributes[\"peer.service\"], attributes[\"db.system\"]) where attributes[\"peer.service\"] == nil and attributes[\"db.system\"] != nil",
+        ]
+      }
+      output {
         traces = [
           otelcol.exporter.otlp.grafanacloud.input,
           otelcol.connector.servicegraph.default.input,
         ]
-        logs = [otelcol.exporter.loki.grafanacloud.input]
       }
     }
 
@@ -66,6 +79,7 @@ locals {
 
     otelcol.exporter.prometheus "servicegraphs" {
       forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      add_metric_suffixes = false
     }
 
     otelcol.exporter.otlp "grafanacloud" {

@@ -51,7 +51,7 @@ app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspa
 FlaskInstrumentor().instrument_app(app)
 PsycopgInstrumentor().instrument()
 
-metrics = PrometheusMetrics(app)
+metrics = PrometheusMetrics(app, group_by='endpoint')
 
 # static information as metric
 metrics.info('app_info', 'Application info', version='1.0.17')
