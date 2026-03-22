@@ -1,3 +1,7 @@
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
+}
 
 module "vpc" {
   source = "../../modules/vpc"
@@ -38,12 +42,24 @@ module "dns" {
 
   domain_name               = var.domain_name
   domain_validation_options = module.acm.domain_validation_options
-  alb_dns_name              = module.alb.alb_dns_name
-  alb_zone_id               = module.alb.alb_zone_id
+  alb_dns_name              = module.cloudfront.cloudfront_domain_name
+  alb_zone_id               = module.cloudfront.cloudfront_hosted_zone_id
 }
 
 module "acm" {
   source = "../../modules/acm"
+
+  domain_name             = var.domain_name
+  environment             = var.environment
+  project                 = var.project
+  validation_record_fqdns = module.dns.validation_record_fqdns
+}
+
+module "acm_global" {
+  source = "../../modules/acm"
+  providers = {
+    aws = aws.us-east-1
+  }
 
   domain_name             = var.domain_name
   environment             = var.environment
@@ -140,9 +156,10 @@ module "alb" {
   target_group_port     = 80
   target_group_protocol = "HTTP"
   target_type           = "ip" # Fargate uses awsvpc networking → ip targets
+  blocked_paths         = ["/health"]
 
   health_check = {
-    path    = "/"
+    path    = "/health"
     matcher = "200"
   }
 
@@ -156,6 +173,17 @@ module "alb" {
   access_logs_prefix = "alb-logs"
 
   depends_on = [aws_s3_bucket_policy.alb_logs]
+}
+
+module "cloudfront" {
+  source = "../../modules/cloudfront"
+
+  environment = var.environment
+  project     = var.project
+  domain_name = var.domain_name
+
+  alb_dns_name        = module.alb.alb_dns_name
+  acm_certificate_arn = module.acm_global.certificate_arn
 }
 
 # Ingress rule added after module.alb to break the circular SG reference:
@@ -178,4 +206,144 @@ module "ecs_cluster" {
   project     = var.project
 
   enable_container_insights = true
+}
+
+# ──────────────────────────────────────────────
+# VPC Flow Logs -> Kinesis Data Firehose -> Grafana Loki
+# ──────────────────────────────────────────────
+
+data "aws_secretsmanager_secret" "flow_logs_token" {
+  name = "keystone/${var.environment}/flow-logs-token"
+}
+
+data "aws_secretsmanager_secret_version" "flow_logs_token" {
+  secret_id = data.aws_secretsmanager_secret.flow_logs_token.id
+}
+
+# S3 Backup for failed Firehose delivery
+resource "aws_s3_bucket" "vpc_flow_logs_backup" {
+  bucket_prefix = "${var.project}-${var.environment}-flow-logs-backup-"
+  force_destroy = true
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "terraform"
+  }
+}
+
+# IAM Role for Firehose → S3 backup
+resource "aws_iam_role" "firehose_delivery_role" {
+  name_prefix = "${var.environment}-firehose-loki-"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = { Service = "firehose.amazonaws.com" }
+        Effect = "Allow"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "firehose_delivery_policy" {
+  name   = "firehose_delivery_policy"
+  role   = aws_iam_role.firehose_delivery_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:AbortMultipartUpload",
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:PutObject"
+        ]
+        Resource = [
+          aws_s3_bucket.vpc_flow_logs_backup.arn,
+          "${aws_s3_bucket.vpc_flow_logs_backup.arn}/*"
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:PutLogEvents"]
+        Resource = ["*"]
+      }
+    ]
+  })
+}
+
+# CloudWatch Log Group for Firehose delivery errors
+resource "aws_cloudwatch_log_group" "firehose_errors" {
+  name              = "/aws/firehose/${var.environment}-vpc-flow-logs"
+  retention_in_days = 7
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_cloudwatch_log_stream" "firehose_errors" {
+  name           = "DeliveryErrors"
+  log_group_name = aws_cloudwatch_log_group.firehose_errors.name
+}
+
+# Firehose Delivery Stream to Grafana Cloud Loki HTTP endpoint
+resource "aws_kinesis_firehose_delivery_stream" "vpc_flow_logs" {
+  name        = "${var.environment}-vpc-flow-logs-to-grafana"
+  destination = "http_endpoint"
+
+  http_endpoint_configuration {
+    url                = "https://aws-${var.grafana_loki_host}/aws-logs/api/v1/push"
+    name               = "Grafana AWS Logs Destination"
+    access_key         = "${var.grafana_loki_user}:${jsondecode(data.aws_secretsmanager_secret_version.flow_logs_token.secret_string)["aws-token"]}"
+    buffering_size     = 1
+    buffering_interval = 60
+    role_arn           = aws_iam_role.firehose_delivery_role.arn
+    s3_backup_mode     = "FailedDataOnly"
+
+    request_configuration {
+      content_encoding = "GZIP"
+
+      common_attributes {
+        name  = "lbl_job"
+        value = "vpc-flow-logs"
+      }
+    }
+
+    cloudwatch_logging_options {
+      enabled         = true
+      log_group_name  = aws_cloudwatch_log_group.firehose_errors.name
+      log_stream_name = aws_cloudwatch_log_stream.firehose_errors.name
+    }
+
+    s3_configuration {
+      role_arn           = aws_iam_role.firehose_delivery_role.arn
+      bucket_arn         = aws_s3_bucket.vpc_flow_logs_backup.arn
+      buffering_size     = 5
+      buffering_interval = 300
+      compression_format = "GZIP"
+    }
+  }
+}
+
+# VPC Flow Log Resource
+resource "aws_flow_log" "vpc" {
+  log_destination      = aws_kinesis_firehose_delivery_stream.vpc_flow_logs.arn
+  log_destination_type = "kinesis-data-firehose"
+  traffic_type         = "ALL"
+  vpc_id               = module.vpc.vpc_id
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "terraform"
+  }
 }

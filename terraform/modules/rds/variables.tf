@@ -186,3 +186,25 @@ variable "snapshot_identifier" {
   type        = string
   default     = null
 }
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling variables
+# ──────────────────────────────────────────────
+
+variable "enable_scheduled_scaling" {
+  description = "Enable scheduled starting and stopping of the RDS instance"
+  type        = bool
+  default     = false
+}
+
+variable "scale_down_cron" {
+  description = "Cron expression for scaling down (stopping) the RDS instance (e.g. '15 20 * * ? *')"
+  type        = string
+  default     = "15 20 * * ? *"
+}
+
+variable "scale_up_cron" {
+  description = "Cron expression for scaling up (starting) the RDS instance (e.g. '45 6 * * ? *')"
+  type        = string
+  default     = "45 6 * * ? *"
+}

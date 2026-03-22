@@ -207,3 +207,9 @@ variable "listener_rules" {
   }))
   default = {}
 }
+
+variable "blocked_paths" {
+  description = "List of path patterns to block (returns 403 Forbidden)"
+  type        = list(string)
+  default     = []
+}

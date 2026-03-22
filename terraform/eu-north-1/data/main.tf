@@ -47,6 +47,13 @@ module "rds" {
   snapshot_identifier = var.snapshot_identifier
 
   # Encryption & Monitoring
-  storage_encrypted            = false
+  storage_encrypted            = true
   performance_insights_enabled = false
+
+  # Scheduled Scaling (Nightly Stop/Start)
+  # ECS stops at 20:00, starts at 07:00
+  # RDS stops at 20:15, starts at 06:45 to wrap the ECS schedule
+  enable_scheduled_scaling = true
+  scale_down_cron          = "15 20 * * ? *"
+  scale_up_cron            = "45 6 * * ? *"
 }

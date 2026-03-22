@@ -27,8 +27,7 @@ resource "aws_route53_record" "cert_validation" {
 # ALB Routing Records
 # ──────────────────────────────────────────────
 
-
-# Demo: demo.edenkeystone.com → ALB
+# Demo: demo.edenkeystone.com → ALB/CloudFront
 resource "aws_route53_record" "demo" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "demo.${var.domain_name}"
@@ -37,7 +36,6 @@ resource "aws_route53_record" "demo" {
   alias {
     name                   = var.alb_dns_name
     zone_id                = var.alb_zone_id
-    evaluate_target_health = true
+    evaluate_target_health = false
   }
 }
-

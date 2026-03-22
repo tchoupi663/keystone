@@ -144,6 +144,33 @@ resource "aws_lb_listener" "https" {
 }
 
 
+# Block rules - explicitly return 403 for specific paths
+resource "aws_lb_listener_rule" "blocked_paths" {
+  count = length(var.blocked_paths) > 0 ? 1 : 0
+
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 10
+
+  action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "403 - Forbidden"
+      status_code  = "403"
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = var.blocked_paths
+    }
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rule-blocked-paths"
+  })
+}
+
 # Host-based listener rules — forward traffic only for matching domains
 resource "aws_lb_listener_rule" "host_based" {
   for_each = var.listener_rules

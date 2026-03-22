@@ -81,3 +81,91 @@ resource "aws_db_instance" "this" {
     Name = "${var.project}-${var.environment}-db"
   })
 }
+
+# ──────────────────────────────────────────────
+# Scheduled Scaling (Nightly Stop/Start)
+# ──────────────────────────────────────────────
+
+resource "aws_iam_role" "rds_scheduler" {
+  count = var.enable_scheduled_scaling ? 1 : 0
+  name  = "${var.project}-${var.environment}-rds-scheduler-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rds-scheduler-role"
+  })
+}
+
+resource "aws_iam_role_policy" "rds_scheduler" {
+  count = var.enable_scheduled_scaling ? 1 : 0
+  name  = "${var.project}-${var.environment}-rds-scheduler-policy"
+  role  = aws_iam_role.rds_scheduler[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "rds:StopDBInstance",
+          "rds:StartDBInstance",
+        ]
+        Resource = [aws_db_instance.this.arn]
+      }
+    ]
+  })
+}
+
+resource "aws_scheduler_schedule" "stop_rds" {
+  count = var.enable_scheduled_scaling ? 1 : 0
+  name  = "${var.project}-${var.environment}-stop-rds"
+
+  schedule_expression          = "cron(${var.scale_down_cron})"
+  schedule_expression_timezone = "UTC"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:rds:stopDBInstance"
+    role_arn = aws_iam_role.rds_scheduler[0].arn
+
+    input = jsonencode({
+      DbInstanceIdentifier = aws_db_instance.this.identifier
+    })
+  }
+}
+
+resource "aws_scheduler_schedule" "start_rds" {
+  count = var.enable_scheduled_scaling ? 1 : 0
+  name  = "${var.project}-${var.environment}-start-rds"
+
+  schedule_expression          = "cron(${var.scale_up_cron})"
+  schedule_expression_timezone = "UTC"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:rds:startDBInstance"
+    role_arn = aws_iam_role.rds_scheduler[0].arn
+
+    input = jsonencode({
+      DbInstanceIdentifier = aws_db_instance.this.identifier
+    })
+  }
+}

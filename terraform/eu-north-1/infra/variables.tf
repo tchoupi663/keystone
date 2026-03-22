@@ -4,6 +4,18 @@ variable "region" {
   default     = "eu-north-1"
 }
 
+variable "grafana_loki_host" {
+  description = "Grafana Cloud Loki host for Firehose (e.g. logs-prod-035.grafana.net)"
+  type        = string
+}
+
+variable "grafana_loki_user" {
+  description = "Grafana user ID"
+  type        = string
+}
+
+
+
 variable "environment" {
   description = "Define the environment"
   type        = string
