@@ -45,7 +45,7 @@ locals {
       trace_statements {
         context = "span"
         statements = [
-          "set(attributes[\"peer.service\"], attributes[\"db.system\"]) where attributes[\"peer.service\"] == nil and attributes[\"db.system\"] != nil",
+          "set(span.attributes[\"peer.service\"], span.attributes[\"db.system\"]) where span.attributes[\"peer.service\"] == nil and span.attributes[\"db.system\"] != nil",
         ]
       }
       output {
@@ -360,7 +360,7 @@ resource "aws_ecs_task_definition" "app" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${var.container_port}/\")'"]
+        command     = ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${var.container_port}/health\")'"]
         interval    = 30
         timeout     = 5
         retries     = 3
