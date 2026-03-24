@@ -287,7 +287,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── ADDED: Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:latest"
+      image = "grafana/alloy:1.14.1"
       essential = true
 
       logConfiguration = {

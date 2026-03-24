@@ -19,4 +19,7 @@ COPY . .
 EXPOSE 80
 
 # The command to start the app
-CMD ["python", "app.py"]
+RUN adduser --disabled-password --no-create-home appuser
+USER appuser
+
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--threads", "2", "app:app"]

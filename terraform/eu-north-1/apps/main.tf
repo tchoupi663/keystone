@@ -70,7 +70,7 @@ module "apps" {
   enable_scheduled_scaling = true
 
   # Nightly scale down
-  scale_down_cron         = "0 20 * * ? *"
+  scale_down_cron         = "0 21 * * ? *"
   scale_up_cron           = "0 7 * * ? *"
   scale_down_min_capacity = 0
   scale_down_max_capacity = 0

@@ -300,6 +300,13 @@ resource "aws_kinesis_firehose_delivery_stream" "vpc_flow_logs" {
   name        = "${var.environment}-vpc-flow-logs-to-grafana"
   destination = "http_endpoint"
 
+  tags = {
+    Environment      = var.environment
+    Project          = var.project
+    ManagedBy        = "terraform"
+    LogDeliveryEnabled = "true"
+  }
+
   http_endpoint_configuration {
     url                = "https://aws-${var.grafana_loki_host}/aws-logs/api/v1/push"
     name               = "Grafana AWS Logs Destination"
@@ -338,7 +345,7 @@ resource "aws_kinesis_firehose_delivery_stream" "vpc_flow_logs" {
 resource "aws_flow_log" "vpc" {
   log_destination      = aws_kinesis_firehose_delivery_stream.vpc_flow_logs.arn
   log_destination_type = "kinesis-data-firehose"
-  traffic_type         = "ALL"
+  traffic_type         = "ALL" 
   vpc_id               = module.vpc.vpc_id
 
   tags = {
