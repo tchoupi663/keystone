@@ -303,7 +303,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:v1.0.0-ubuntu"
+      image = "grafana/alloy:latest"
       essential = true
 
       logConfiguration = {
@@ -328,7 +328,7 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      entryPoint = ["sh", "-c"]
+      entryPoint = ["/bin/sh", "-c"]
       command    = ["echo \"$ALLOY_CONFIG_B64\" | base64 -d > /tmp/config.alloy && /bin/alloy run /tmp/config.alloy"]
     },
 
@@ -338,7 +338,8 @@ resource "aws_ecs_task_definition" "app" {
       image     = "cloudflare/cloudflared:latest"
       essential = true
 
-      command = ["tunnel", "--no-autoupdate", "run", "--token", "$(TUNNEL_TOKEN)"]
+      entryPoint = ["cloudflared"]
+      command    = ["tunnel", "--no-autoupdate", "run"]
 
       secrets = [
         {

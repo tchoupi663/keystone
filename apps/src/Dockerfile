@@ -15,11 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Flask typically runs on 80 in this setup
-EXPOSE 80
+# Flask typically runs on 8080 in this setup
+EXPOSE 8080
 
 # The command to start the app
 RUN adduser --disabled-password --no-create-home appuser
 USER appuser
 
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "2", "--threads", "2", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "2", "app:app"]

@@ -68,7 +68,7 @@ module "apps" {
   db_master_user_secret_arn = data.terraform_remote_state.data.outputs.rds_master_user_secret_arn
 
   # Container
-  container_port = 80
+  container_port = 8080
   task_cpu       = "256"
   task_memory    = "512"
 

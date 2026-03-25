@@ -282,4 +282,4 @@ if __name__ == '__main__':
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()
 
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=8080)
