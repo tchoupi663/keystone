@@ -17,6 +17,16 @@ data "terraform_remote_state" "data" {
   }
   #workspace = terraform.workspace
 }
+
+data "terraform_remote_state" "network" {
+  backend = "s3"
+  config = {
+    bucket = "keystone-infra-terraform-state"
+    key    = "network/eu-north-1/network.tfstate"
+    region = "eu-north-1"
+  }
+}
+
 data "aws_secretsmanager_secret" "github-token" {
   name = var.github_token_secret_name
 }
@@ -32,11 +42,11 @@ module "apps" {
   project     = var.project
   region      = var.region
 
-  # Networking
+  # Networking — ECS tasks in public subnets with public IPs
   vpc_id     = data.terraform_remote_state.infra.outputs.vpc_id
-  subnet_ids = data.terraform_remote_state.infra.outputs.private_subnets
+  subnet_ids = data.terraform_remote_state.infra.outputs.public_subnets
 
-  assign_public_ip = false
+  assign_public_ip = true
 
   # Cluster
   ecs_cluster_id          = data.terraform_remote_state.infra.outputs.ecs_cluster_id
@@ -44,9 +54,8 @@ module "apps" {
   app_image               = "${var.app_image_repository}:${var.image_tag}"
   github_token_secret_arn = data.aws_secretsmanager_secret.github-token.arn
 
-  # ALB
-  alb_security_group_id = data.terraform_remote_state.infra.outputs.alb_security_group_id
-  alb_target_group_arn  = data.terraform_remote_state.infra.outputs.alb_target_group_arn
+  # Cloudflare Tunnel
+  cloudflare_tunnel_token_secret_arn = data.terraform_remote_state.network.outputs.tunnel_token_secret_arn
 
   # Security
   ecs_security_group_id = data.terraform_remote_state.infra.outputs.ecs_security_group_id

@@ -160,7 +160,8 @@ resource "aws_iam_role_policy" "ecs_execution" {
         # ── CHANGED: removed fluent_bit from log groups
         Resource = [
           "${aws_cloudwatch_log_group.app.arn}:*",
-          "${aws_cloudwatch_log_group.alloy.arn}:*"
+          "${aws_cloudwatch_log_group.alloy.arn}:*",
+          "${aws_cloudwatch_log_group.cloudflared.arn}:*"
         ]
       },
       # ── ADDED: allow execution role to resolve the Grafana API key at container startup
@@ -171,6 +172,12 @@ resource "aws_iam_role_policy" "ecs_execution" {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
         Resource = [var.grafana_loki_api_key_secret_arn]
+      },
+      {
+        Sid    = "CloudflareTunnelToken"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [var.cloudflare_tunnel_token_secret_arn]
       }
     ]
   })
@@ -268,6 +275,15 @@ resource "aws_cloudwatch_log_group" "alloy" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "cloudflared" {
+  name              = "/ecs/${var.project}-${var.environment}-cloudflared"
+  retention_in_days = var.log_retention_days
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-cloudflared-logs"
+  })
+}
+
 
 # ──────────────────────────────────────────────
 # ECS Task Definition
@@ -284,10 +300,10 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
 
-    # ── ADDED: Grafana Alloy sidecar for Prometheus metrics
+    # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:1.14.1"
+      image = "grafana/alloy:v1.0.0-ubuntu"
       essential = true
 
       logConfiguration = {
@@ -316,7 +332,34 @@ resource "aws_ecs_task_definition" "app" {
       command    = ["echo \"$ALLOY_CONFIG_B64\" | base64 -d > /tmp/config.alloy && /bin/alloy run /tmp/config.alloy"]
     },
 
-    # ── Application container (standard awslogs driver, application logs go directly to Alloy via OTLP layer)
+    # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
+    {
+      name      = "cloudflared"
+      image     = "cloudflare/cloudflared:latest"
+      essential = true
+
+      command = ["tunnel", "--no-autoupdate", "run", "--token", "$(TUNNEL_TOKEN)"]
+
+      secrets = [
+        {
+          name      = "TUNNEL_TOKEN"
+          valueFrom = var.cloudflare_tunnel_token_secret_arn
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.cloudflared.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "cloudflared"
+        }
+      }
+
+      memory = 128
+    },
+
+    # ── Application container
     {
       name      = local.container_name
       image     = var.app_image
@@ -405,12 +448,6 @@ resource "aws_ecs_service" "app" {
     assign_public_ip = var.assign_public_ip
   }
 
-  load_balancer {
-    target_group_arn = var.alb_target_group_arn
-    container_name   = local.container_name
-    container_port   = var.container_port
-  }
-
   deployment_circuit_breaker {
     enable   = true
     rollback = true
@@ -419,8 +456,6 @@ resource "aws_ecs_service" "app" {
   deployment_controller {
     type = "ECS"
   }
-
-  health_check_grace_period_seconds = var.health_check_grace_period
 
   lifecycle {
     ignore_changes = [desired_count]

@@ -52,3 +52,6 @@ gha-creds-*.json
 
 gemini*
 commands
+
+tfvars
+schema.json
