@@ -39,10 +39,16 @@ module "rds" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:30-sun:05:30"
 
-  # Availability (single-AZ to keep costs low in dev)
-  multi_az            = false # true
-  deletion_protection = false
-  skip_final_snapshot = true
+  # Environment-specific availability configuration
+  # Dev: single-AZ for cost savings
+  # Staging: single-AZ acceptable 
+  # Prod: Multi-AZ for high availability
+  multi_az            = var.environment == "prod" ? true : false
+  
+  # Protection settings based on environment
+  deletion_protection = var.environment == "prod" ? true : false
+  skip_final_snapshot = var.environment == "prod" ? false : true
+  final_snapshot_identifier = var.environment == "prod" ? "${var.project}-${var.environment}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
 
   snapshot_identifier = var.snapshot_identifier
 
@@ -50,10 +56,11 @@ module "rds" {
   storage_encrypted            = true
   performance_insights_enabled = false
 
-  # Scheduled Scaling (Nightly Stop/Start)
+  # Scheduled Scaling - only for dev/staging to save costs
   # ECS stops at 20:00, starts at 07:00
   # RDS stops at 20:15, starts at 06:45 to wrap the ECS schedule
-  enable_scheduled_scaling = true
+  # Production runs 24/7 with Multi-AZ for HA
+  enable_scheduled_scaling = var.environment != "prod"
   scale_down_cron          = "15 20 * * ? *"
   scale_up_cron            = "45 6 * * ? *"
 }

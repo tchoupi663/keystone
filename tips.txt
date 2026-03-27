@@ -95,9 +95,9 @@
 
 | Gap | Detail |
 |-----|--------|
-| **No staging/prod tfvars** | Only `dev.tfvars` exists. No environment promotion path. |
-| **No Terraform workspaces or directory-per-env pattern** | Currently everything is dev-only. Plan for `staging/` and `prod/` under each region. |
-| **Hard-coded `"dev"` in multiple places** | Secret paths like `keystone/dev/github-token` are semi-hardcoded. Needs full parameterization. |
+| **No staging/prod tfvars** | ✅ FIXED:Only `dev.tfvars` exists. No environment promotion path. |
+| **No Terraform workspaces or directory-per-env pattern** | ✅ FIXED:Currently everything is dev-only. Plan for `staging/` and `prod/` under each region. |
+| **Hard-coded `"dev"` in multiple places** | ✅ FIXED:Secret paths like `keystone/dev/github-token` are semi-hardcoded. Needs full parameterization. |
 
 ---
 
