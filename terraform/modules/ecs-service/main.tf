@@ -303,7 +303,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:latest"
+      image = var.alloy_image
       essential = true
 
       logConfiguration = {
@@ -335,7 +335,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
     {
       name      = "cloudflared"
-      image     = "cloudflare/cloudflared:latest"
+      image     = var.cloudflared_image
       essential = true
 
       entryPoint = ["cloudflared"]
@@ -582,20 +582,20 @@ resource "aws_sns_topic_subscription" "deployment_alarms_email" {
   endpoint  = each.value
 }
 
-# Alarm: ECS Service Deployment Failed
-resource "aws_cloudwatch_metric_alarm" "deployment_failed" {
+# Alarm: ECS Running Task Count below desired
+resource "aws_cloudwatch_metric_alarm" "running_task_count" {
   count = var.enable_deployment_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-ecs-deployment-failed"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "FailedDeployments"
-  namespace           = "ECS/Custom"
+  alarm_name          = "${var.project}-${var.environment}-ecs-low-running-tasks"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "RunningTaskCount"
+  namespace           = "ECS/ContainerInsights"
   period              = 60
-  statistic           = "Sum"
-  threshold           = 0
-  alarm_description   = "ECS deployment failed for ${var.project}-${var.environment}. Check deployment circuit breaker logs."
-  treat_missing_data  = "notBreaching"
+  statistic           = "Average"
+  threshold           = var.desired_count
+  alarm_description   = "ECS running tasks dropped below desired count for ${var.project}-${var.environment}. Possible task failure or deployment rollback."
+  treat_missing_data  = "breaching"
 
   dimensions = {
     ServiceName = aws_ecs_service.app.name
@@ -606,32 +606,23 @@ resource "aws_cloudwatch_metric_alarm" "deployment_failed" {
   ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.environment}-ecs-deployment-failed"
+    Name = "${var.project}-${var.environment}-ecs-low-running-tasks"
   })
 }
 
-# Note: AWS does not publish a native "FailedDeployments" metric.
-# To make this alarm functional, you need to:
-# 1. Add a CloudWatch Logs metric filter on ECS deployment events, OR
-# 2. Use EventBridge to detect deployment failures and publish custom metrics
-# For now, this serves as infrastructure-as-code for the alarm.
-# Production implementation should include an EventBridge rule:
-#   Event Pattern: { "source": ["aws.ecs"], "detail-type": ["ECS Deployment State Change"], "detail": { "eventName": ["SERVICE_DEPLOYMENT_FAILED"] } }
-#   Target: CloudWatch custom metric
-
-# Alarm: ECS Service Circuit Breaker Triggered
-resource "aws_cloudwatch_metric_alarm" "circuit_breaker_triggered" {
+# Alarm: ECS Service CPU Utilization High
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
   count = var.enable_deployment_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-ecs-circuit-breaker"
+  alarm_name          = "${var.project}-${var.environment}-ecs-cpu-high"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "DeploymentRollbacks"
-  namespace           = "ECS/Custom"
-  period              = 60
-  statistic           = "Sum"
-  threshold           = 0
-  alarm_description   = "ECS deployment circuit breaker triggered a rollback for ${var.project}-${var.environment}. Review task health and logs."
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_cpu_threshold
+  alarm_description   = "ECS CPU utilization exceeded ${var.alarm_cpu_threshold}% for ${var.project}-${var.environment}."
   treat_missing_data  = "notBreaching"
 
   dimensions = {
@@ -643,6 +634,34 @@ resource "aws_cloudwatch_metric_alarm" "circuit_breaker_triggered" {
   ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.environment}-ecs-circuit-breaker"
+    Name = "${var.project}-${var.environment}-ecs-cpu-high"
+  })
+}
+
+# Alarm: ECS Service Memory Utilization High
+resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_memory_threshold
+  alarm_description   = "ECS memory utilization exceeded ${var.alarm_memory_threshold}% for ${var.project}-${var.environment}."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-memory-high"
   })
 }

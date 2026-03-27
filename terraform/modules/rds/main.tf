@@ -261,3 +261,109 @@ resource "aws_backup_selection" "rds" {
 }
 
 data "aws_caller_identity" "current" {}
+
+
+# ──────────────────────────────────────────────
+# CloudWatch Alarms & SNS Notifications
+# ──────────────────────────────────────────────
+
+resource "aws_sns_topic" "rds_alarms" {
+  count = var.enable_alarms ? 1 : 0
+
+  name              = "${var.project}-${var.environment}-rds-alarms"
+  display_name      = "RDS Alarms - ${var.environment}"
+  kms_master_key_id = "alias/aws/sns"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rds-alarms"
+  })
+}
+
+resource "aws_sns_topic_subscription" "rds_alarms_email" {
+  for_each = var.enable_alarms ? toset(var.alarm_email_endpoints) : []
+
+  topic_arn = aws_sns_topic.rds_alarms[0].arn
+  protocol  = "email"
+  endpoint  = each.value
+}
+
+# Alarm: RDS CPU Utilization High
+resource "aws_cloudwatch_metric_alarm" "rds_cpu_high" {
+  count = var.enable_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-rds-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/RDS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_cpu_threshold
+  alarm_description   = "RDS CPU utilization exceeded ${var.alarm_cpu_threshold}% for ${aws_db_instance.this.identifier}."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.this.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.rds_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.rds_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rds-cpu-high"
+  })
+}
+
+# Alarm: RDS Free Storage Space Low
+resource "aws_cloudwatch_metric_alarm" "rds_storage_low" {
+  count = var.enable_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-rds-storage-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "FreeStorageSpace"
+  namespace           = "AWS/RDS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_free_storage_threshold_gb * 1073741824 # Convert GB to bytes
+  alarm_description   = "RDS free storage below ${var.alarm_free_storage_threshold_gb} GB for ${aws_db_instance.this.identifier}."
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.this.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.rds_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.rds_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rds-storage-low"
+  })
+}
+
+# Alarm: RDS Database Connections High
+resource "aws_cloudwatch_metric_alarm" "rds_connections_high" {
+  count = var.enable_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-rds-connections-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "DatabaseConnections"
+  namespace           = "AWS/RDS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_max_connections
+  alarm_description   = "RDS database connections exceeded ${var.alarm_max_connections} for ${aws_db_instance.this.identifier}."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.this.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.rds_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.rds_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-rds-connections-high"
+  })
+}
