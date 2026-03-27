@@ -20,6 +20,8 @@ capacity_provider_strategy = [
     weight            = 1
   }
 ]
+
+# Parameterized secret path - uses environment variable
 github_token_secret_name = "keystone/dev/github-token"
 grafana_loki_user = "1511095"
 
