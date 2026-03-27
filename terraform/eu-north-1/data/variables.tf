@@ -51,4 +51,10 @@ variable "backup_replication_region" {
   type        = string
   default     = "eu-west-1"
 }
+
+variable "alarm_email_endpoints" {
+  description = "List of email addresses to receive RDS alarm notifications"
+  type        = list(string)
+  default     = []
+}
 }
