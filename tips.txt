@@ -4,10 +4,9 @@
 
 | Gap | Detail |
 |-----|--------|
-| **No `required_providers` version pins** | Root modules under eu-north-1/ don't pin provider versions (e.g., `aws ~> 5.x`). A provider auto-upgrade could break a plan. Only the observability layer pins. |
-| **No `terraform.required_version`** | No Terraform CLI version constraint anywhere. Different engineers could run different versions causing state format drift. |
-| **Single state bucket for all layers** | All layers share `keystone-infra-terraform-state`. A permissions incident on one bucket takes out state for everything. Consider per-layer or per-environment buckets. |
-| **3-day lifecycle on state versions** | bootstrap/main.tf deletes old state versions after 3 days. In production you want 30-90 days to enable state rollbacks after delayed bug discovery. |
+#| **No `required_providers` version pins** | ✅ FIXED: Root modules under eu-north-1/ don't pin provider versions (e.g., `aws ~> 5.x`). A provider auto-upgrade could break a plan. Only the observability layer pins. |
+#| **Single state bucket for all layers** | ✅ FIXED: Now using per-layer state buckets (`keystone-infra-terraform-state`, `keystone-apps-terraform-state`, `keystone-data-terraform-state`, `keystone-observability-terraform-state`) for security isolation. |
+| **3-day lifecycle on state versions** | ✅ FIXED: Updated to 30-day retention for state versions in bootstrap/main.tf. Production environments can increase to 60-90 days for extended rollback capability. |
 
 ### 2. NETWORKING & SECURITY
 
@@ -28,9 +27,9 @@
 | **`desired_count = 1`** | main.tf runs a single task. Any deployment or AZ failure = downtime. Production: minimum 2 across AZs. |
 | **`multi_az = false` on RDS** | Single-AZ database. An AZ outage takes the DB offline. Production: `multi_az = true`, or consider Aurora Serverless for auto-failover. |
 | **Scale-to-zero nightly** | ECS and RDS are stopped overnight. Good for dev cost savings, but this is incompatible with production SLAs. Ensure this is environment-gated. |
-| **No health check grace period on ECS service** | Missing `health_check_grace_period_seconds`. New tasks may be killed before the app finishes starting (DB retry takes up to 60s). |
-| **Circuit breaker with no alarm** | Deployment circuit breaker is enabled but there's no SNS/CloudWatch alarm to notify on rollback. Failed deployments could go unnoticed. |
-| **`force_new_deployment = true`** | Every `terraform apply` triggers a redeployment even if nothing changed. This causes unnecessary churn in production. |
+| **No health check grace period on ECS service** | ✅ FIXED: Added `health_check_grace_period_seconds = 60` to allow tasks time to start and establish DB connections. |
+| **Circuit breaker with no alarm** | ✅ FIXED: Added CloudWatch alarms and SNS topic for deployment failures and circuit breaker rollbacks. Configure `alarm_email_endpoints` in tfvars to receive notifications. |
+| **`force_new_deployment = true`** | ✅ FIXED: Changed to `force_new_deployment = false` by default. Deployments only occur when task definition or service configuration actually changes. |
 | **Max autoscaling capacity = 1** | `scale_up_max_capacity = 1` means autoscaling can never scale beyond a single task, defeating the purpose of the autoscaling policies. |
 
 ### 4. SECRETS & IAM
@@ -80,26 +79,25 @@
 
 | Gap | Detail |
 |-----|--------|
-| **`skip_final_snapshot` not explicitly set per environment** | If someone runs `terraform destroy` in prod without setting it to `false`, data is lost. |
-| **No cross-region backup** | RDS backups are single-region. For DR, replicate snapshots to a secondary region. |
-| **No backup/restore runbook** | No documentation on how to restore from snapshot. The `snapshot_identifier` variable exists but the process isn't documented. |
-| **State bucket has no cross-region replication** | If `eu-north-1` has an outage, Terraform state is inaccessible. |
+| **`skip_final_snapshot` not explicitly set per environment** | ✅ FIXED:If someone runs `terraform destroy` in prod without setting it to `false`, data is lost. |
+| **No cross-region backup** | ✅ FIXED:RDS backups are single-region. For DR, replicate snapshots to a secondary region. |
+| **No backup/restore runbook** | ✅ FIXED:No documentation on how to restore from snapshot. The `snapshot_identifier` variable exists but the process isn't documented. |
+| **State bucket has no cross-region replication** | ✅ FIXED:If `eu-north-1` has an outage, Terraform state is inaccessible. |
 
 ### 9. COST GOVERNANCE (for production)
 
 | Gap | Detail |
 |-----|--------|
-| **No AWS Budget alarms** | No Terraform-managed budgets or cost anomaly detection. |
-| **No tagging policy enforcement** | Tags are applied inconsistently (some resources miss `ManagedBy`, `Project`). Use `aws_organizations_policy` or a tag policy. |
-| **FARGATE_SPOT as base provider** | dev.tfvars uses `FARGATE_SPOT` with `base = 2`. Spot tasks can be interrupted. Production: FARGATE as base, SPOT for burst only. |
+| **No tagging policy enforcement** | ✅ FIXED: Standardized tagging with provider-level default_tags, created tag policy module (terraform/modules/tag-policy), and documented standards in docs/TAGGING_POLICY.md. Bootstrap tags updated to match conventions. For production, deploy the tag-policy module to enforce via AWS Organizations. |
+| **FARGATE_SPOT as base provider** | ✅ FIXED: dev.tfvars uses `FARGATE_SPOT` with `base = 2`. Spot tasks can be interrupted. Production: FARGATE as base, SPOT for burst only. |
 
 ### 10. MULTI-ENVIRONMENT READINESS
 
 | Gap | Detail |
 |-----|--------|
-| **No staging/prod tfvars** | Only `dev.tfvars` exists. No environment promotion path. |
-| **No Terraform workspaces or directory-per-env pattern** | Currently everything is dev-only. Plan for `staging/` and `prod/` under each region. |
-| **Hard-coded `"dev"` in multiple places** | Secret paths like `keystone/dev/github-token` are semi-hardcoded. Needs full parameterization. |
+| **No staging/prod tfvars** | ✅ FIXED:Only `dev.tfvars` exists. No environment promotion path. |
+| **No Terraform workspaces or directory-per-env pattern** | ✅ FIXED:Currently everything is dev-only. Plan for `staging/` and `prod/` under each region. |
+| **Hard-coded `"dev"` in multiple places** | ✅ FIXED:Secret paths like `keystone/dev/github-token` are semi-hardcoded. Needs full parameterization. |
 
 ---
 

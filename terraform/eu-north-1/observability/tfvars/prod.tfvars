@@ -1,5 +1,5 @@
 region      = "eu-north-1"
-environment = "dev"
+environment = "prod"
 project     = "keystone"
 
 grafana_url = "https://edenkeystone.grafana.net"
