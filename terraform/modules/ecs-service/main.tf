@@ -430,7 +430,8 @@ resource "aws_ecs_service" "app" {
   desired_count   = var.desired_count
   launch_type     = length(var.capacity_provider_strategy) == 0 ? "FARGATE" : null
 
-  force_new_deployment = true
+  health_check_grace_period_seconds = var.health_check_grace_period_seconds
+  force_new_deployment              = var.force_new_deployment
 
   dynamic "capacity_provider_strategy" {
     for_each = var.capacity_provider_strategy
@@ -552,4 +553,96 @@ resource "aws_appautoscaling_scheduled_action" "scale_up" {
     min_capacity = var.scale_up_min_capacity
     max_capacity = var.scale_up_max_capacity
   }
+}
+
+
+# ──────────────────────────────────────────────
+# CloudWatch Alarms & SNS Notifications
+# ──────────────────────────────────────────────
+
+# SNS topic for deployment alarms
+resource "aws_sns_topic" "deployment_alarms" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  name              = "${var.project}-${var.environment}-deployment-alarms"
+  display_name      = "ECS Deployment Alarms - ${var.environment}"
+  kms_master_key_id = "alias/aws/sns"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-deployment-alarms"
+  })
+}
+
+# Email subscriptions for the SNS topic
+resource "aws_sns_topic_subscription" "deployment_alarms_email" {
+  for_each = var.enable_deployment_alarms ? toset(var.alarm_email_endpoints) : []
+
+  topic_arn = aws_sns_topic.deployment_alarms[0].arn
+  protocol  = "email"
+  endpoint  = each.value
+}
+
+# Alarm: ECS Service Deployment Failed
+resource "aws_cloudwatch_metric_alarm" "deployment_failed" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-deployment-failed"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "FailedDeployments"
+  namespace           = "ECS/Custom"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "ECS deployment failed for ${var.project}-${var.environment}. Check deployment circuit breaker logs."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-deployment-failed"
+  })
+}
+
+# Note: AWS does not publish a native "FailedDeployments" metric.
+# To make this alarm functional, you need to:
+# 1. Add a CloudWatch Logs metric filter on ECS deployment events, OR
+# 2. Use EventBridge to detect deployment failures and publish custom metrics
+# For now, this serves as infrastructure-as-code for the alarm.
+# Production implementation should include an EventBridge rule:
+#   Event Pattern: { "source": ["aws.ecs"], "detail-type": ["ECS Deployment State Change"], "detail": { "eventName": ["SERVICE_DEPLOYMENT_FAILED"] } }
+#   Target: CloudWatch custom metric
+
+# Alarm: ECS Service Circuit Breaker Triggered
+resource "aws_cloudwatch_metric_alarm" "circuit_breaker_triggered" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-circuit-breaker"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "DeploymentRollbacks"
+  namespace           = "ECS/Custom"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "ECS deployment circuit breaker triggered a rollback for ${var.project}-${var.environment}. Review task health and logs."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-circuit-breaker"
+  })
 }
