@@ -255,6 +255,22 @@ variable "grafana_tempo_user" {
 }
 
 
+# ──────────────────────────────────────────────
+# Sidecar Image Versions
+# ──────────────────────────────────────────────
+
+variable "alloy_image" {
+  description = "Pinned Grafana Alloy sidecar image. Avoid :latest to prevent broken upstream pushes."
+  type        = string
+  default     = "grafana/alloy:v1.8.3"
+}
+
+variable "cloudflared_image" {
+  description = "Pinned Cloudflare Tunnel sidecar image. Avoid :latest to prevent broken upstream pushes."
+  type        = string
+  default     = "cloudflare/cloudflared:2025.2.1"
+}
+
 
 # ──────────────────────────────────────────────
 # Scheduled Scaling
@@ -328,4 +344,16 @@ variable "alarm_email_endpoints" {
   description = "List of email addresses to receive deployment alarm notifications. Leave empty to skip email subscriptions."
   type        = list(string)
   default     = []
+}
+
+variable "alarm_cpu_threshold" {
+  description = "CPU utilization percentage threshold for ECS alarm"
+  type        = number
+  default     = 85
+}
+
+variable "alarm_memory_threshold" {
+  description = "Memory utilization percentage threshold for ECS alarm"
+  type        = number
+  default     = 85
 }

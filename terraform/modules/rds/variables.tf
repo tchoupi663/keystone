@@ -230,3 +230,38 @@ variable "scale_up_cron" {
   type        = string
   default     = "45 6 * * ? *"
 }
+
+
+# ──────────────────────────────────────────────
+# CloudWatch Alarms
+# ──────────────────────────────────────────────
+
+variable "enable_alarms" {
+  description = "Enable CloudWatch alarms for RDS CPU, storage, and connection monitoring"
+  type        = bool
+  default     = true
+}
+
+variable "alarm_email_endpoints" {
+  description = "List of email addresses to receive RDS alarm notifications"
+  type        = list(string)
+  default     = []
+}
+
+variable "alarm_cpu_threshold" {
+  description = "RDS CPU utilization percentage threshold"
+  type        = number
+  default     = 80
+}
+
+variable "alarm_free_storage_threshold_gb" {
+  description = "RDS free storage space alarm threshold in GB"
+  type        = number
+  default     = 2
+}
+
+variable "alarm_max_connections" {
+  description = "Maximum database connections threshold for the alarm"
+  type        = number
+  default     = 50
+}

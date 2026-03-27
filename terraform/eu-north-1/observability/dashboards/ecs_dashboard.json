@@ -1,0 +1,257 @@
+{
+  "title": "Keystone - ECS Cluster Utilization",
+  "uid": "keystone-ecs-cluster",
+  "tags": ["keystone", "ecs", "cluster"],
+  "timezone": "utc",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Running Task Count",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "RunningTaskCount",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "60",
+          "statistic": "Average"
+        },
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "DesiredTaskCount",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "60",
+          "statistic": "Average",
+          "label": "Desired"
+        }
+      ]
+    },
+    {
+      "title": "Pending Task Count",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "PendingTaskCount",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "60",
+          "statistic": "Average"
+        }
+      ]
+    },
+    {
+      "title": "Service CPU Utilization (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "namespace": "AWS/ECS",
+          "metricName": "CPUUtilization",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average"
+        }
+      ]
+    },
+    {
+      "title": "Service Memory Utilization (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "namespace": "AWS/ECS",
+          "metricName": "MemoryUtilization",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average"
+        }
+      ]
+    },
+    {
+      "title": "Container CPU Reservation vs Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" }
+      },
+      "targets": [
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "CpuUtilized",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "CPU Utilized"
+        },
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "CpuReserved",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "CPU Reserved"
+        }
+      ]
+    },
+    {
+      "title": "Container Memory Reservation vs Usage (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      },
+      "targets": [
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "MemoryUtilized",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "Memory Utilized"
+        },
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "MemoryReserved",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "Memory Reserved"
+        }
+      ]
+    },
+    {
+      "title": "Network Rx/Tx (bytes/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "Bps" }
+      },
+      "targets": [
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "NetworkRxBytes",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "Network Rx"
+        },
+        {
+          "namespace": "ECS/ContainerInsights",
+          "metricName": "NetworkTxBytes",
+          "dimensions": {
+            "ServiceName": ["${service_name}"],
+            "ClusterName": ["${cluster_name}"]
+          },
+          "period": "300",
+          "statistic": "Average",
+          "label": "Network Tx"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "cloudwatch"
+      },
+      {
+        "name": "cluster_name",
+        "type": "custom",
+        "query": "keystone-dev-cluster,keystone-staging-cluster,keystone-prod-cluster",
+        "current": { "text": "keystone-dev-cluster", "value": "keystone-dev-cluster" }
+      },
+      {
+        "name": "service_name",
+        "type": "custom",
+        "query": "keystone-dev-app,keystone-staging-app,keystone-prod-app",
+        "current": { "text": "keystone-dev-app", "value": "keystone-dev-app" }
+      }
+    ]
+  }
+}

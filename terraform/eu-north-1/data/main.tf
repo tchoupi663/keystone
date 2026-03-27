@@ -64,4 +64,8 @@ module "rds" {
   enable_cross_region_backup        = var.enable_cross_region_backup
   backup_replication_region         = var.backup_replication_region
   backup_replication_retention_days = 14 # Keep DR backups for 2 weeks
+
+  # CloudWatch Alarms
+  enable_alarms         = true
+  alarm_email_endpoints = var.alarm_email_endpoints
 }
