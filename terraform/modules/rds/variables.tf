@@ -197,6 +197,28 @@ variable "enable_scheduled_scaling" {
   default     = false
 }
 
+# ──────────────────────────────────────────────
+# Cross-Region Backup variables
+# ──────────────────────────────────────────────
+
+variable "enable_cross_region_backup" {
+  description = "Enable cross-region backup replication for disaster recovery"
+  type        = bool
+  default     = false
+}
+
+variable "backup_replication_region" {
+  description = "AWS region to replicate backups to for DR (e.g., eu-west-1)"
+  type        = string
+  default     = null
+}
+
+variable "backup_replication_retention_days" {
+  description = "Number of days to retain replicated backups in the DR region"
+  type        = number
+  default     = 7
+}
+
 variable "scale_down_cron" {
   description = "Cron expression for scaling down (stopping) the RDS instance (e.g. '15 20 * * ? *')"
   type        = string
