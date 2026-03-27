@@ -4,10 +4,9 @@
 
 | Gap | Detail |
 |-----|--------|
-| **No `required_providers` version pins** | Root modules under eu-north-1/ don't pin provider versions (e.g., `aws ~> 5.x`). A provider auto-upgrade could break a plan. Only the observability layer pins. |
-| **No `terraform.required_version`** | No Terraform CLI version constraint anywhere. Different engineers could run different versions causing state format drift. |
-| **Single state bucket for all layers** | All layers share `keystone-infra-terraform-state`. A permissions incident on one bucket takes out state for everything. Consider per-layer or per-environment buckets. |
-| **3-day lifecycle on state versions** | bootstrap/main.tf deletes old state versions after 3 days. In production you want 30-90 days to enable state rollbacks after delayed bug discovery. |
+#| **No `required_providers` version pins** | ✅ FIXED: Root modules under eu-north-1/ don't pin provider versions (e.g., `aws ~> 5.x`). A provider auto-upgrade could break a plan. Only the observability layer pins. |
+#| **Single state bucket for all layers** | ✅ FIXED: Now using per-layer state buckets (`keystone-infra-terraform-state`, `keystone-apps-terraform-state`, `keystone-data-terraform-state`, `keystone-observability-terraform-state`) for security isolation. |
+| **3-day lifecycle on state versions** | ✅ FIXED: Updated to 30-day retention for state versions in bootstrap/main.tf. Production environments can increase to 60-90 days for extended rollback capability. |
 
 ### 2. NETWORKING & SECURITY
 
@@ -89,9 +88,8 @@
 
 | Gap | Detail |
 |-----|--------|
-| **No AWS Budget alarms** | No Terraform-managed budgets or cost anomaly detection. |
-| **No tagging policy enforcement** | Tags are applied inconsistently (some resources miss `ManagedBy`, `Project`). Use `aws_organizations_policy` or a tag policy. |
-| **FARGATE_SPOT as base provider** | dev.tfvars uses `FARGATE_SPOT` with `base = 2`. Spot tasks can be interrupted. Production: FARGATE as base, SPOT for burst only. |
+| **No tagging policy enforcement** | ✅ FIXED: Standardized tagging with provider-level default_tags, created tag policy module (terraform/modules/tag-policy), and documented standards in docs/TAGGING_POLICY.md. Bootstrap tags updated to match conventions. For production, deploy the tag-policy module to enforce via AWS Organizations. |
+| **FARGATE_SPOT as base provider** | ✅ FIXED: dev.tfvars uses `FARGATE_SPOT` with `base = 2`. Spot tasks can be interrupted. Production: FARGATE as base, SPOT for burst only. |
 
 ### 10. MULTI-ENVIRONMENT READINESS
 

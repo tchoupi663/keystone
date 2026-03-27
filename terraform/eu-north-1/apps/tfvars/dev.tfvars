@@ -3,14 +3,21 @@ region      = "eu-north-1"
 environment = "dev"
 project     = "keystone"
 
+# Capacity Provider Strategy for Dev Environment
+# - Dev uses FARGATE_SPOT for cost savings (acceptable risk of interruption)
+# - FARGATE_SPOT with base = 1 ensures at least one task runs (may be interrupted)
+# - FARGATE with weight = 1 handles spillover if SPOT unavailable
+# For production, see prod.tfvars for recommended configuration
 capacity_provider_strategy = [
   {
-    base              = 2
+    base              = 1
     capacity_provider = "FARGATE_SPOT"
+    weight            = 2
   },
   {
     base              = 0
     capacity_provider = "FARGATE"
+    weight            = 1
   }
 ]
 github_token_secret_name = "keystone/dev/github-token"
