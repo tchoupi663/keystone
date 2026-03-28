@@ -42,6 +42,26 @@ module "vpc" {
 # edge. Only egress rules are needed.
 # ──────────────────────────────────────────────
 
+locals {
+  cloudflare_ipv4 = [
+    "173.245.48.0/20",
+    "103.21.244.0/22",
+    "103.22.200.0/22",
+    "103.31.4.0/22",
+    "141.101.64.0/18",
+    "108.162.192.0/18",
+    "190.93.240.0/20",
+    "188.114.96.0/20",
+    "197.234.240.0/22",
+    "198.41.128.0/17",
+    "162.158.0.0/15",
+    "104.16.0.0/13",
+    "104.24.0.0/14",
+    "172.64.0.0/13",
+    "131.0.72.0/22"
+  ]
+}
+
 resource "aws_security_group" "ecs_tasks" {
   name_prefix = "${var.environment}-ecs-tasks-"
   description = "ECS tasks - outbound only (Cloudflare Tunnel handles inbound)"
@@ -69,7 +89,7 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 7844
     to_port     = 7844
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = local.cloudflare_ipv4
   }
 
   egress {
@@ -77,7 +97,7 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 7844
     to_port     = 7844
     protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = local.cloudflare_ipv4
   }
 
   egress {

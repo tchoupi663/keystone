@@ -560,7 +560,7 @@ resource "aws_appautoscaling_policy" "memory" {
 # ──────────────────────────────────────────────
 
 resource "aws_appautoscaling_scheduled_action" "scale_down" {
-  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+  count = var.enable_autoscaling && var.enable_scheduled_scaling && var.scale_down_cron != "" ? 1 : 0
 
   name               = "${var.project}-${var.environment}-scale-down"
   service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
@@ -575,7 +575,7 @@ resource "aws_appautoscaling_scheduled_action" "scale_down" {
 }
 
 resource "aws_appautoscaling_scheduled_action" "scale_up" {
-  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+  count = var.enable_autoscaling && var.enable_scheduled_scaling && var.scale_up_cron != "" ? 1 : 0
 
   name               = "${var.project}-${var.environment}-scale-up"
   service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace

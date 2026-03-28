@@ -7,6 +7,8 @@ import time
 import datetime
 import random
 import logging
+import signal
+import sys
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -222,6 +224,15 @@ def init_db(max_retries=12, retry_delay=5):
 # Background: Prorated cost simulation
 # ──────────────────────────────────────────────
 
+shutdown_event = threading.Event()
+
+def handle_shutdown(signum, frame):
+    logging.info(f"Received signal {signum}, gracefully shutting down...")
+    shutdown_event.set()
+
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
+
 def update_costs():
     """Background thread that writes accumulated infracost estimates to the DB every hour.
 
@@ -235,7 +246,7 @@ def update_costs():
     PROJECT_START = datetime.date(2026, 2, 28)
     AVG_DAYS_PER_MONTH = 30.44
 
-    while True:
+    while not shutdown_event.is_set():
         logging.info("Updating cost data...")
         try:
             now = datetime.datetime.utcnow()
@@ -277,14 +288,15 @@ def update_costs():
         except Exception as e:
             logging.info(f"Failed to update cost data: {e}")
 
-        # Refresh every hour
-        time.sleep(3600)
+        # Refresh every hour, unless interrupted
+        shutdown_event.wait(3600)
 
+# ──────────────────────────────────────────────
+# Ensure initialization is run when imported by gunicorn
+# ──────────────────────────────────────────────
+init_db()
+cost_thread = threading.Thread(target=update_costs, daemon=True)
+cost_thread.start()
 
 if __name__ == '__main__':
-    init_db()
-
-    cost_thread = threading.Thread(target=update_costs, daemon=True)
-    cost_thread.start()
-
     app.run(host='0.0.0.0', port=8080)
