@@ -45,6 +45,10 @@ logging.getLogger().setLevel(logging.INFO)
 # Also capture Werkzeug request logs
 logging.getLogger('werkzeug').addHandler(otel_handler)
 
+# Capture Gunicorn logs (essential for Fargate/Gunicorn production environments)
+logging.getLogger("gunicorn.error").addHandler(otel_handler)
+logging.getLogger("gunicorn.access").addHandler(otel_handler)
+
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
 # Instrument Flask & DB
@@ -105,6 +109,7 @@ def architecture():
 @app.route('/health')
 def health():
     """Health check endpoint used by ALB and monitoring."""
+    logging.info("Health check heartbeat")
     try:
         conn = get_db_connection()
         conn.close()
@@ -282,4 +287,4 @@ if __name__ == '__main__':
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()
 
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=8080)

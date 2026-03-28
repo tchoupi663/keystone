@@ -40,16 +40,11 @@ variable "assign_public_ip" {
 
 
 # ──────────────────────────────────────────────
-# ALB integration
+# Cloudflare Tunnel
 # ──────────────────────────────────────────────
 
-variable "alb_security_group_id" {
-  description = "Security group ID of the ALB (used as ingress source for ECS tasks)"
-  type        = string
-}
-
-variable "alb_target_group_arn" {
-  description = "ARN of the ALB target group to register ECS tasks with"
+variable "cloudflare_tunnel_token_secret_arn" {
+  description = "ARN of the Secrets Manager secret holding the Cloudflare Tunnel token"
   type        = string
 }
 
@@ -66,16 +61,19 @@ variable "ecs_security_group_id" {
 variable "rds_security_group_id" {
   description = "Security group ID of the RDS instance (ECS tasks will be allowed ingress)"
   type        = string
+  default     = null
 }
 
 variable "db_host" {
   description = "RDS endpoint hostname (without port)"
   type        = string
+  default     = null
 }
 
 variable "db_name" {
   description = "Name of the database to connect to"
   type        = string
+  default     = null
 }
 
 variable "db_port" {
@@ -87,6 +85,7 @@ variable "db_port" {
 variable "db_master_user_secret_arn" {
   description = "ARN of the Secrets Manager secret containing the RDS master user credentials"
   type        = string
+  default     = null
 }
 
 
@@ -141,12 +140,6 @@ variable "desired_count" {
   description = "Number of ECS tasks to run"
   type        = number
   default     = 1
-}
-
-variable "health_check_grace_period" {
-  description = "Seconds to wait before ALB health checks start after task launch"
-  type        = number
-  default     = 120
 }
 
 variable "enable_execute_command" {

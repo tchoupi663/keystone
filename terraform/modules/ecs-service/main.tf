@@ -8,6 +8,11 @@ locals {
   container_name = "${var.project}-${var.environment}-app"
 
   alloy_config_b64 = base64encode(<<-EOT
+    logging {
+      level  = "debug"
+      format = "logfmt"
+    }
+
     prometheus.scrape "flask_app" {
       targets = [
         {"__address__" = "localhost:${var.container_port}"},
@@ -23,6 +28,11 @@ locals {
           username = "${var.grafana_prometheus_user}"
           password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
         }
+        
+        queue_config {
+          max_samples_per_send = 1000
+          batch_send_deadline  = "30s"
+        }
       }
     }
 
@@ -36,7 +46,7 @@ locals {
 
       output {
         traces = [otelcol.processor.transform.add_peer_service.input]
-        logs = [otelcol.exporter.loki.grafanacloud.input]
+        logs   = [otelcol.exporter.loki.grafanacloud.input]
       }
     }
 
@@ -63,6 +73,10 @@ locals {
           username = "${var.grafana_loki_user}"
           password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
         }
+      }
+      external_labels = {
+        job = "keystone-app",
+        env = "${var.environment}",
       }
     }
 
@@ -102,6 +116,7 @@ locals {
 # ──────────────────────────────────────────────
 
 resource "aws_security_group_rule" "rds_ingress_from_ecs" {
+  count                    = var.rds_security_group_id != null ? 1 : 0
   type                     = "ingress"
   description              = "Allow ECS tasks to connect to RDS"
   from_port                = var.db_port
@@ -160,7 +175,8 @@ resource "aws_iam_role_policy" "ecs_execution" {
         # ── CHANGED: removed fluent_bit from log groups
         Resource = [
           "${aws_cloudwatch_log_group.app.arn}:*",
-          "${aws_cloudwatch_log_group.alloy.arn}:*"
+          "${aws_cloudwatch_log_group.alloy.arn}:*",
+          "${aws_cloudwatch_log_group.cloudflared.arn}:*"
         ]
       },
       # ── ADDED: allow execution role to resolve the Grafana API key at container startup
@@ -171,12 +187,19 @@ resource "aws_iam_role_policy" "ecs_execution" {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
         Resource = [var.grafana_loki_api_key_secret_arn]
+      },
+      {
+        Sid    = "CloudflareTunnelToken"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [var.cloudflare_tunnel_token_secret_arn]
       }
     ]
   })
 }
 
 resource "aws_iam_policy" "secrets_read" {
+  count       = var.db_master_user_secret_arn != null ? 1 : 0
   name        = "${var.project}-${var.environment}-ecs-secrets-read"
   description = "Allow ECS execution role to read RDS credentials from Secrets Manager"
 
@@ -193,8 +216,9 @@ resource "aws_iam_policy" "secrets_read" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_secrets" {
+  count      = var.db_master_user_secret_arn != null ? 1 : 0
   role       = aws_iam_role.ecs_execution.name
-  policy_arn = aws_iam_policy.secrets_read.arn
+  policy_arn = aws_iam_policy.secrets_read[0].arn
 }
 
 
@@ -268,6 +292,15 @@ resource "aws_cloudwatch_log_group" "alloy" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "cloudflared" {
+  name              = "/ecs/${var.project}-${var.environment}-cloudflared"
+  retention_in_days = var.log_retention_days
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-cloudflared-logs"
+  })
+}
+
 
 # ──────────────────────────────────────────────
 # ECS Task Definition
@@ -284,10 +317,10 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
 
-    # ── ADDED: Grafana Alloy sidecar for Prometheus metrics
+    # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:1.14.1"
+      image = "grafana/alloy:latest"
       essential = true
 
       logConfiguration = {
@@ -312,11 +345,51 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      entryPoint = ["sh", "-c"]
+      entryPoint = ["/bin/sh", "-c"]
       command    = ["echo \"$ALLOY_CONFIG_B64\" | base64 -d > /tmp/config.alloy && /bin/alloy run /tmp/config.alloy"]
     },
 
-    # ── Application container (standard awslogs driver, application logs go directly to Alloy via OTLP layer)
+    # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
+    {
+      name      = "cloudflared"
+      image     = "cloudflare/cloudflared:latest"
+      essential = true
+
+      entryPoint = ["cloudflared"]
+      command    = ["tunnel", "--no-autoupdate", "run"]
+
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+
+      # Allows the non-root user (GID 65532) to use ICMP
+      systemControls = [
+        {
+          namespace = "net.ipv4.ping_group_range"
+          value     = "0 65535"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "TUNNEL_TOKEN"
+          valueFrom = var.cloudflare_tunnel_token_secret_arn
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.cloudflared.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "cloudflared"
+        }
+      }
+
+      memory = 128
+    },
+
+    # ── Application container
     {
       name      = local.container_name
       image     = var.app_image
@@ -333,22 +406,28 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      environment = [
-        { name = "DB_HOST", value = var.db_host },
-        { name = "DB_NAME", value = var.db_name },
-        { name = "DB_PORT", value = tostring(var.db_port) }
-      ]
+      environment = flatten([
+        [],
+        var.db_host != null ? [
+          { name = "DB_HOST", value = var.db_host },
+          { name = "DB_NAME", value = var.db_name },
+          { name = "DB_PORT", value = tostring(var.db_port) }
+        ] : []
+      ])
 
-      secrets = [
-        {
-          name      = "DB_USER"
-          valueFrom = "${var.db_master_user_secret_arn}:username::"
-        },
-        {
-          name      = "DB_PASSWORD"
-          valueFrom = "${var.db_master_user_secret_arn}:password::"
-        }
-      ]
+      secrets = flatten([
+        [],
+        var.db_master_user_secret_arn != null ? [
+          {
+            name      = "DB_USER"
+            valueFrom = "${var.db_master_user_secret_arn}:username::"
+          },
+          {
+            name      = "DB_PASSWORD"
+            valueFrom = "${var.db_master_user_secret_arn}:password::"
+          }
+        ] : []
+      ])
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -405,12 +484,6 @@ resource "aws_ecs_service" "app" {
     assign_public_ip = var.assign_public_ip
   }
 
-  load_balancer {
-    target_group_arn = var.alb_target_group_arn
-    container_name   = local.container_name
-    container_port   = var.container_port
-  }
-
   deployment_circuit_breaker {
     enable   = true
     rollback = true
@@ -419,8 +492,6 @@ resource "aws_ecs_service" "app" {
   deployment_controller {
     type = "ECS"
   }
-
-  health_check_grace_period_seconds = var.health_check_grace_period
 
   lifecycle {
     ignore_changes = [desired_count]

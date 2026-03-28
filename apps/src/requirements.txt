@@ -7,3 +7,4 @@ opentelemetry-sdk
 opentelemetry-instrumentation-flask
 opentelemetry-instrumentation-psycopg
 opentelemetry-exporter-otlp
+gunicorn==23.0.0
