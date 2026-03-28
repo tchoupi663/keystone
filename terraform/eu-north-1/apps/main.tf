@@ -60,12 +60,12 @@ module "apps" {
   # Security
   ecs_security_group_id = data.terraform_remote_state.infra.outputs.ecs_security_group_id
 
-  # RDS
-  rds_security_group_id     = data.terraform_remote_state.data.outputs.rds_security_group_id
-  db_host                   = data.terraform_remote_state.data.outputs.rds_address
-  db_name                   = data.terraform_remote_state.data.outputs.rds_db_name
-  db_port                   = data.terraform_remote_state.data.outputs.rds_port
-  db_master_user_secret_arn = data.terraform_remote_state.data.outputs.rds_master_user_secret_arn
+  # RDS (temporarily unlinked)
+  # rds_security_group_id     = data.terraform_remote_state.data.outputs.rds_security_group_id
+  # db_host                   = data.terraform_remote_state.data.outputs.rds_address
+  # db_name                   = data.terraform_remote_state.data.outputs.rds_db_name
+  # db_port                   = data.terraform_remote_state.data.outputs.rds_port
+  # db_master_user_secret_arn = data.terraform_remote_state.data.outputs.rds_master_user_secret_arn
 
   # Container
   container_port = 8080

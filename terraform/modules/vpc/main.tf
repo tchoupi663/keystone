@@ -401,29 +401,20 @@ resource "aws_network_acl" "public" {
   vpc_id     = aws_vpc.vpc.id
   subnet_ids = aws_subnet.subnet_public[*].id
 
-  # Allow HTTP/HTTPS inbound
-  ingress {
-    protocol   = "tcp"
-    rule_no    = 100
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 443
-    to_port    = 443
-  }
-
-  ingress {
-    protocol   = "tcp"
-    rule_no    = 110
-    action     = "allow"
-    cidr_block = "0.0.0.0/0"
-    from_port  = 80
-    to_port    = 80
-  }
-
   # Allow ephemeral ports for return traffic
   ingress {
     protocol   = "tcp"
     rule_no    = 200
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Allow UDP ephemeral ports for return traffic (required for QUIC)
+  ingress {
+    protocol   = "udp"
+    rule_no    = 210
     action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 1024

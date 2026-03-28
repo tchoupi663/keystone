@@ -79,10 +79,13 @@ resource "aws_security_group" "ecs_tasks" {
     ManagedBy   = "terraform"
   }
 
-  lifecycle {
-    create_before_destroy = true
+  egress {
+    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
+    from_port   = 7844
+    to_port     = 7844
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-}
 
 
 module "ecs_cluster" {
@@ -118,6 +121,22 @@ resource "aws_s3_bucket" "vpc_flow_logs_backup" {
     Project     = var.project
     ManagedBy   = "terraform"
   }
+}
+
+resource "aws_s3_bucket_versioning" "vpc_flow_logs_backup" {
+  bucket = aws_s3_bucket.vpc_flow_logs_backup.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "vpc_flow_logs_backup" {
+  bucket = aws_s3_bucket.vpc_flow_logs_backup.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # IAM Role for Firehose → S3 backup
