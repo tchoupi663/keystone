@@ -152,6 +152,22 @@ resource "aws_s3_bucket" "vpc_flow_logs_backup" {
   }
 }
 
+resource "aws_s3_bucket_versioning" "vpc_flow_logs_backup" {
+  bucket = aws_s3_bucket.vpc_flow_logs_backup.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "vpc_flow_logs_backup" {
+  bucket = aws_s3_bucket.vpc_flow_logs_backup.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # IAM Role for Firehose → S3 backup
 resource "aws_iam_role" "firehose_delivery_role" {
   name_prefix = "${var.environment}-firehose-loki-"

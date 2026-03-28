@@ -358,6 +358,18 @@ resource "aws_ecs_task_definition" "app" {
       entryPoint = ["cloudflared"]
       command    = ["tunnel", "--no-autoupdate", "run"]
 
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+
+      # Allows the non-root user (GID 65532) to use ICMP
+      systemControls = [
+        {
+          namespace = "net.ipv4.ping_group_range"
+          value     = "0 65535"
+        }
+      ]
+
       secrets = [
         {
           name      = "TUNNEL_TOKEN"
