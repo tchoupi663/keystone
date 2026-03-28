@@ -197,28 +197,6 @@ variable "enable_scheduled_scaling" {
   default     = false
 }
 
-# ──────────────────────────────────────────────
-# Cross-Region Backup variables
-# ──────────────────────────────────────────────
-
-variable "enable_cross_region_backup" {
-  description = "Enable cross-region backup replication for disaster recovery"
-  type        = bool
-  default     = false
-}
-
-variable "backup_replication_region" {
-  description = "AWS region to replicate backups to for DR (e.g., eu-west-1)"
-  type        = string
-  default     = null
-}
-
-variable "backup_replication_retention_days" {
-  description = "Number of days to retain replicated backups in the DR region"
-  type        = number
-  default     = 7
-}
-
 variable "scale_down_cron" {
   description = "Cron expression for scaling down (stopping) the RDS instance (e.g. '15 20 * * ? *')"
   type        = string
@@ -229,39 +207,4 @@ variable "scale_up_cron" {
   description = "Cron expression for scaling up (starting) the RDS instance (e.g. '45 6 * * ? *')"
   type        = string
   default     = "45 6 * * ? *"
-}
-
-
-# ──────────────────────────────────────────────
-# CloudWatch Alarms
-# ──────────────────────────────────────────────
-
-variable "enable_alarms" {
-  description = "Enable CloudWatch alarms for RDS CPU, storage, and connection monitoring"
-  type        = bool
-  default     = true
-}
-
-variable "alarm_email_endpoints" {
-  description = "List of email addresses to receive RDS alarm notifications"
-  type        = list(string)
-  default     = []
-}
-
-variable "alarm_cpu_threshold" {
-  description = "RDS CPU utilization percentage threshold"
-  type        = number
-  default     = 80
-}
-
-variable "alarm_free_storage_threshold_gb" {
-  description = "RDS free storage space alarm threshold in GB"
-  type        = number
-  default     = 2
-}
-
-variable "alarm_max_connections" {
-  description = "Maximum database connections threshold for the alarm"
-  type        = number
-  default     = 50
 }

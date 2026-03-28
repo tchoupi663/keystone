@@ -1,6 +1,4 @@
 terraform {
-  required_version = ">= 1.5.0"
-
   backend "s3" {
     bucket       = "keystone-infra-terraform-state"
     region       = "eu-north-1"

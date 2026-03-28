@@ -40,8 +40,4 @@ The flow follows a reverse-proxy pattern via Cloudflare:
 3.  **Grafana Alloy** scrapes metrics from the app and forwards them to Grafana Cloud.
 4.  **Kinesis Data Firehose** ingests VPC Flow Logs and streams them directly to Grafana Loki.
 
-## Documentation
-
-- **[Tagging Policy](docs/TAGGING_POLICY.md)**: Standards for consistent resource tagging across the infrastructure
-- **[ADRs](docs/adr/)**: Architecture decision records documenting key design choices
 

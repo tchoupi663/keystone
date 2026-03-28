@@ -148,12 +148,6 @@ variable "enable_execute_command" {
   default     = false
 }
 
-variable "health_check_grace_period_seconds" {
-  description = "Grace period (in seconds) during which the service scheduler ignores unhealthy load balancer target health checks after a task has first started. Useful when the app takes time to initialize (e.g., DB connection retry)."
-  type        = number
-  default     = 60
-}
-
 
 # ──────────────────────────────────────────────
 # Capacity provider
@@ -259,22 +253,6 @@ variable "grafana_tempo_user" {
 }
 
 
-# ──────────────────────────────────────────────
-# Sidecar Image Versions
-# ──────────────────────────────────────────────
-
-variable "alloy_image" {
-  description = "Pinned Grafana Alloy sidecar image. Avoid :latest to prevent broken upstream pushes."
-  type        = string
-  default     = "grafana/alloy:v1.8.3"
-}
-
-variable "cloudflared_image" {
-  description = "Pinned Cloudflare Tunnel sidecar image. Avoid :latest to prevent broken upstream pushes."
-  type        = string
-  default     = "cloudflare/cloudflared:2025.2.1"
-}
-
 
 # ──────────────────────────────────────────────
 # Scheduled Scaling
@@ -320,44 +298,4 @@ variable "scale_up_max_capacity" {
   description = "Maximum capacity during scale up period"
   type        = number
   default     = 4
-}
-
-
-# ──────────────────────────────────────────────
-# Deployment Configuration
-# ──────────────────────────────────────────────
-
-variable "force_new_deployment" {
-  description = "Force a new deployment on every Terraform apply. Set to false in production to avoid unnecessary churn."
-  type        = bool
-  default     = false
-}
-
-
-# ──────────────────────────────────────────────
-# CloudWatch Alarms & Notifications
-# ──────────────────────────────────────────────
-
-variable "enable_deployment_alarms" {
-  description = "Enable CloudWatch alarms for deployment failures and circuit breaker rollbacks"
-  type        = bool
-  default     = true
-}
-
-variable "alarm_email_endpoints" {
-  description = "List of email addresses to receive deployment alarm notifications. Leave empty to skip email subscriptions."
-  type        = list(string)
-  default     = []
-}
-
-variable "alarm_cpu_threshold" {
-  description = "CPU utilization percentage threshold for ECS alarm"
-  type        = number
-  default     = 85
-}
-
-variable "alarm_memory_threshold" {
-  description = "Memory utilization percentage threshold for ECS alarm"
-  type        = number
-  default     = 85
 }

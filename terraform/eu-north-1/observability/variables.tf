@@ -24,8 +24,3 @@ variable "grafana_workspace_token_secret_name" {
   description = "Name of the AWS Secret containing the Grafana Service Account Token"
   type        = string
 }
-
-variable "grafana_loki_datasource_uid" {
-  description = "UID of the Grafana Loki datasource used in alert rule queries"
-  type        = string
-}

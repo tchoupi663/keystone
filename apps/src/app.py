@@ -8,8 +8,6 @@ import datetime
 import random
 import logging
 
-from pythonjsonlogger import json as jsonlogger
-
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -39,25 +37,13 @@ set_logger_provider(logger_provider)
 log_exporter = OTLPLogExporter(endpoint="http://localhost:4318/v1/logs")
 logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
 
-# Structured JSON logging for better Loki querying
-json_handler = logging.StreamHandler()
-json_handler.setFormatter(
-    jsonlogger.JsonFormatter(
-        fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
-        rename_fields={"asctime": "timestamp", "levelname": "level", "name": "logger"},
-    )
-)
-
 # Attached OTel handler to root python logger
 otel_handler = LoggingHandler(level=logging.INFO, logger_provider=logger_provider)
-root_logger = logging.getLogger()
-root_logger.addHandler(otel_handler)
-root_logger.addHandler(json_handler)
-root_logger.setLevel(logging.INFO)
+logging.getLogger().addHandler(otel_handler)
+logging.getLogger().setLevel(logging.INFO)
 
 # Also capture Werkzeug request logs
 logging.getLogger('werkzeug').addHandler(otel_handler)
-logging.getLogger('werkzeug').addHandler(json_handler)
 
 # Capture Gunicorn logs (essential for Fargate/Gunicorn production environments)
 logging.getLogger("gunicorn.error").addHandler(otel_handler)
@@ -214,7 +200,7 @@ def init_db(max_retries=12, retry_delay=5):
         sql_script = f.read()
 
     for attempt in range(1, max_retries + 1):
-        logging.info("DB init attempt", extra={"attempt": attempt, "max_retries": max_retries})
+        logging.info(f"DB init attempt {attempt}/{max_retries}...")
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -222,14 +208,14 @@ def init_db(max_retries=12, retry_delay=5):
             conn.commit()
             cur.close()
             conn.close()
-            logging.info("Database initialised successfully")
+            logging.info("Database initialised successfully!")
             return
         except Exception as e:
-            logging.info("DB not ready yet", extra={"error": str(e), "attempt": attempt})
+            logging.info(f"DB not ready yet: {e}")
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
-    logging.warning("Could not initialise the database after all retries", extra={"max_retries": max_retries})
+    logging.info("WARNING: Could not initialise the database after all retries.")
 
 
 # ──────────────────────────────────────────────
@@ -250,7 +236,7 @@ def update_costs():
     AVG_DAYS_PER_MONTH = 30.44
 
     while True:
-        logging.info("Updating cost data")
+        logging.info("Updating cost data...")
         try:
             now = datetime.datetime.utcnow()
             today = now.date()
@@ -287,9 +273,9 @@ def update_costs():
             conn.commit()
             cur.close()
             conn.close()
-            logging.info("Cost data updated successfully")
+            logging.info("Cost data updated successfully.")
         except Exception as e:
-            logging.error("Failed to update cost data", extra={"error": str(e)})
+            logging.info(f"Failed to update cost data: {e}")
 
         # Refresh every hour
         time.sleep(3600)

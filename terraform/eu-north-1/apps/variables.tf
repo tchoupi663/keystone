@@ -5,9 +5,9 @@ variable "region" {
 }
 
 variable "environment" {
-  description = "Define the environment (dev, staging, prod)"
+  description = "Define the environment"
   type        = string
-  # No default - must be explicitly provided via tfvars
+  default     = "dev"
 }
 
 variable "project" {

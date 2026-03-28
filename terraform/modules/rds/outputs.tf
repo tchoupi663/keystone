@@ -44,8 +44,3 @@ output "db_security_group_id" {
   description = "ID of the security group attached to the RDS instance"
   value       = aws_security_group.rds.id
 }
-
-output "rds_alarms_topic_arn" {
-  description = "ARN of the SNS topic for RDS alarms"
-  value       = var.enable_alarms ? aws_sns_topic.rds_alarms[0].arn : null
-}
