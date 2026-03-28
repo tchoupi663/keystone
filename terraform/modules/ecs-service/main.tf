@@ -356,7 +356,7 @@ resource "aws_ecs_task_definition" "app" {
       essential = true
 
       entryPoint = ["cloudflared"]
-      command    = ["tunnel", "--no-autoupdate", "run"]
+      command    = ["tunnel", "--no-autoupdate", "run", "--protocol", "http2"]
 
       linuxParameters = {
         initProcessEnabled = true
