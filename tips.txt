@@ -1,0 +1,135 @@
+## Production-Grade Improvements Analysis
+
+### 1. STATE MANAGEMENT & TERRAFORM HYGIENE
+
+| Gap | Detail |
+|-----|--------|
+#| **No `required_providers` version pins** | ✅ FIXED: Root modules under eu-north-1/ don't pin provider versions (e.g., `aws ~> 5.x`). A provider auto-upgrade could break a plan. Only the observability layer pins. |
+#| **Single state bucket for all layers** | ✅ FIXED: Now using per-layer state buckets (`keystone-infra-terraform-state`, `keystone-apps-terraform-state`, `keystone-data-terraform-state`, `keystone-observability-terraform-state`) for security isolation. |
+| **3-day lifecycle on state versions** | ✅ FIXED: Updated to 30-day retention for state versions in bootstrap/main.tf. Production environments can increase to 60-90 days for extended rollback capability. |
+
+### 2. NETWORKING & SECURITY
+
+| Gap | Detail |
+|-----|--------|
+| **ECS tasks in public subnets with public IPs** | main.tf sets `map_public_ip_on_launch = true`. Every Fargate task gets a public IP. Even with zero inbound SG rules, this expands your attack surface. Production pattern: private subnets + NAT (or VPC endpoints). |
+| **No WAF** | No AWS WAF in front of Cloudflare or ALB. If someone discovers the origin, there's no layer-7 filtering. |
+| **Egress to 0.0.0.0/0 on port 443** | The ECS SG allows HTTPS to anywhere. Production: restrict egress to known CIDR ranges (AWS service endpoints, Cloudflare IPs, Grafana Cloud IPs) or use VPC endpoints. |
+| **No VPC endpoint for Secrets Manager/ECR** | Interface endpoints are set to `[]` in the infra layer. Traffic to Secrets Manager and ECR crosses the internet. Consider adding `secretsmanager`, `ecr.api`, `ecr.dkr`, and `logs` endpoints. |
+| **Default NACL rules not shown** | `enable_custom_nacls = true` is set but actual NACL rules aren't visible in the VPC module invocation — ensure database subnets deny all internet-routable traffic. |
+| **RDS has no IAM auth** | DB credentials are username/password in Secrets Manager. Production: enable RDS IAM authentication so ECS task roles can auth without long-lived passwords. |
+| **No SSL enforcement on RDS** | No `rds.force_ssl` parameter group setting. Connections from ECS to PostgreSQL may be unencrypted in transit. |
+
+### 3. HIGH AVAILABILITY & RESILIENCE
+
+| Gap | Detail |
+|-----|--------|
+| **`desired_count = 1`** | main.tf runs a single task. Any deployment or AZ failure = downtime. Production: minimum 2 across AZs. |
+| **`multi_az = false` on RDS** | Single-AZ database. An AZ outage takes the DB offline. Production: `multi_az = true`, or consider Aurora Serverless for auto-failover. |
+| **Scale-to-zero nightly** | ECS and RDS are stopped overnight. Good for dev cost savings, but this is incompatible with production SLAs. Ensure this is environment-gated. |
+| **No health check grace period on ECS service** | ✅ FIXED: Added `health_check_grace_period_seconds = 60` to allow tasks time to start and establish DB connections. |
+| **Circuit breaker with no alarm** | ✅ FIXED: Added CloudWatch alarms and SNS topic for deployment failures and circuit breaker rollbacks. Configure `alarm_email_endpoints` in tfvars to receive notifications. |
+| **`force_new_deployment = true`** | ✅ FIXED: Changed to `force_new_deployment = false` by default. Deployments only occur when task definition or service configuration actually changes. |
+| **Max autoscaling capacity = 1** | `scale_up_max_capacity = 1` means autoscaling can never scale beyond a single task, defeating the purpose of the autoscaling policies. |
+
+### 4. SECRETS & IAM
+
+| Gap | Detail |
+|-----|--------|
+| **Wildcard SSM resource** | ecs-service/main.tf ECS exec policy has `Resource = "*"` for SSM messages. Scope to the cluster/service ARN. |
+| **No secret rotation** | Secrets Manager manages the RDS password but automatic rotation isn't configured. Production: enable rotation with a Lambda. |
+| **Grafana API key in `coalesce(sys.env(...), "missing")`** | If the env var is unset, Alloy silently runs with `"missing"` as the password — fails silently. Use a hard failure instead. |
+| **Hard-coded secret names** | `"keystone/${var.environment}/grafana-loki-api-key"` and `"keystone/${var.environment}/flow-logs-token"` are hard-coded in root modules, not parameterised through variables. |
+
+### 5. OBSERVABILITY & MONITORING
+
+| Gap | Detail |
+|-----|--------|
+| **No CloudWatch alarms** | Zero alarms defined. No alerting on: ECS task failures, RDS CPU/storage, 5xx error rate, unhealthy targets, deployment rollbacks. |
+| **No SNS topic for notifications** | No notification pipeline. Alarms without a destination are useless. |
+| **`grafana/alloy:latest` tag** | Sidecar image uses `:latest`. A broken upstream push breaks your entire deployment. Pin to a specific version. |
+| **`cloudflare/cloudflared:latest` tag** | Same issue — pin the sidecar version. |
+| **Dashboards only cover app + traces** | No dashboards for: RDS performance, ECS cluster utilization, Cloudflare tunnel health, VPC flow log anomalies, cost trends. |
+| **No structured logging** | The Flask app uses `logging.info(f"...")` with string interpolation. Use structured JSON logging for better Loki querying. |
+| **No log-based alerting** | VPC Flow Logs to Loki is great, but no Grafana alert rules are provisioned for anomaly detection (e.g., rejected flows, unusual outbound traffic). |
+
+### 6. APPLICATION CODE
+
+| Gap | Detail |
+|-----|--------|
+| **Exception details leaked in API** | app.py `/api/cost` returns `str(e)` in the JSON response. Stack traces/DB errors could leak to users. Return a generic error and log the detail server-side. |
+| **No connection pooling** | Every request creates and destroys a `psycopg.connect()`. Use `psycopg_pool.ConnectionPool` or a pool library for production load. |
+| **DB init runs SQL from file path at startup** | The `init_db()` function runs DDL on every boot. Use a migration tool (Alembic/Flyway) for schema versioning. |
+| **Background thread for cost updates** | A `threading.Thread` in a multi-worker Gunicorn setup means each worker runs its own update thread, all writing the same data. Use a scheduled ECS task or a dedicated worker. |
+| **No CSRF/rate-limiting** | No rate limiting on `/api/cost` or other endpoints. Add `flask-limiter` or rely on Cloudflare's rate-limiting rules. |
+| **Health check returns 200 even when DB is down** | `/health` returns `200` with `"db": "unavailable"`. Load balancers see this as healthy. Return 503 when the DB is unreachable. |
+| **Hardcoded cost data** | `MONTHLY_COSTS` is baked into app.py. Should be externalized (config, environment variable, or database seed). |
+
+### 7. CI/CD & DEPLOYMENT
+
+| Gap | Detail |
+|-----|--------|
+| **No CI/CD pipeline definition** | No GitHub Actions, no Makefile, no deployment scripts. Image tags are manually bumped in dev.tfvars (`image_tag = "app-1.0.25"`). |
+| **No `terraform plan` in CI** | No automated plan/apply workflow. No PR-gated plan output. |
+| **No image scanning** | No Trivy/Snyk/ECR scanning in the build pipeline. Vulnerabilities in the Python image or dependencies go undetected. |
+| **No `.terraform-docs`** | Module documentation is not auto-generated. `terraform-docs` would help onboarding. |
+| **No `tflint` / `checkov` / `tfsec`** | No static analysis for Terraform. Misconfigurations (like the public IP issue) would be caught by tools like Checkov. |
+
+### 8. DISASTER RECOVERY & DATA PROTECTION
+
+| Gap | Detail |
+|-----|--------|
+| **`skip_final_snapshot` not explicitly set per environment** | ✅ FIXED:If someone runs `terraform destroy` in prod without setting it to `false`, data is lost. |
+| **No cross-region backup** | ✅ FIXED:RDS backups are single-region. For DR, replicate snapshots to a secondary region. |
+| **No backup/restore runbook** | ✅ FIXED:No documentation on how to restore from snapshot. The `snapshot_identifier` variable exists but the process isn't documented. |
+| **State bucket has no cross-region replication** | ✅ FIXED:If `eu-north-1` has an outage, Terraform state is inaccessible. |
+
+### 9. COST GOVERNANCE (for production)
+
+| Gap | Detail |
+|-----|--------|
+| **No tagging policy enforcement** | ✅ FIXED: Standardized tagging with provider-level default_tags, created tag policy module (terraform/modules/tag-policy), and documented standards in docs/TAGGING_POLICY.md. Bootstrap tags updated to match conventions. For production, deploy the tag-policy module to enforce via AWS Organizations. |
+| **FARGATE_SPOT as base provider** | ✅ FIXED: dev.tfvars uses `FARGATE_SPOT` with `base = 2`. Spot tasks can be interrupted. Production: FARGATE as base, SPOT for burst only. |
+
+### 10. MULTI-ENVIRONMENT READINESS
+
+| Gap | Detail |
+|-----|--------|
+| **No staging/prod tfvars** | ✅ FIXED:Only `dev.tfvars` exists. No environment promotion path. |
+| **No Terraform workspaces or directory-per-env pattern** | ✅ FIXED:Currently everything is dev-only. Plan for `staging/` and `prod/` under each region. |
+| **Hard-coded `"dev"` in multiple places** | ✅ FIXED:Secret paths like `keystone/dev/github-token` are semi-hardcoded. Needs full parameterization. |
+
+---
+
+## Priority Ranking for Production Readiness
+
+**P0 — Must fix before any production traffic:**
+1. Move ECS tasks to private subnets (or add VPC endpoints + restrict egress)
+2. Enable Multi-AZ RDS
+3. Run minimum 2 ECS tasks across AZs  
+4. Fix health check to return 503 when DB is down
+5. Pin all container image versions (Alloy, cloudflared)
+6. Add `required_providers` and `terraform.required_version` blocks
+7. Stop leaking exception details in API responses
+8. Add CloudWatch alarms + SNS notifications for critical metrics
+
+**P1 — Required for enterprise grade:**
+9. CI/CD pipeline with automated plan/apply, image scanning
+10. DynamoDB state locking (or validate S3-native locking is sufficient for team size)
+11. DB connection pooling
+12. Secret rotation
+13. WAF layer
+14. RDS SSL enforcement + IAM auth
+15. Structured JSON logging
+16. Increase state version retention to 30+ days
+
+**P2 — Operational maturity:**
+17. Multi-environment tfvars/directory structure
+18. Cross-region state replication and DB backups
+19. Budget alarms and tagging policies
+20. Schema migration tooling (Alembic)
+21. terraform-docs, tflint, checkov in CI
+22. Grafana alert rules for flow log anomalies
+23. Runbooks for DR/restore procedures
+
+The foundation is solid — layered state, modular Terraform, cost-aware design, and a real observability stack. The main gaps are around hardening for HA, security posture, and operational automation that separates a personal/dev project from a production-grade platform.

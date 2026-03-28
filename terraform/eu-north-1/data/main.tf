@@ -39,10 +39,12 @@ module "rds" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:30-sun:05:30"
 
-  # Availability (single-AZ to keep costs low in dev)
-  multi_az            = false # true
-  deletion_protection = false
-  skip_final_snapshot = true
+  # Environment-specific availability and protection configuration
+  # These values are EXPLICITLY set in tfvars files to prevent accidental data loss
+  multi_az                  = var.multi_az
+  deletion_protection       = var.deletion_protection
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.project}-${var.environment}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
 
   snapshot_identifier = var.snapshot_identifier
 
@@ -50,10 +52,20 @@ module "rds" {
   storage_encrypted            = true
   performance_insights_enabled = false
 
-  # Scheduled Scaling (Nightly Stop/Start)
+  # Scheduled Scaling - only for dev/staging to save costs
   # ECS stops at 20:00, starts at 07:00
   # RDS stops at 20:15, starts at 06:45 to wrap the ECS schedule
-  enable_scheduled_scaling = true
+  # Production runs 24/7 with Multi-AZ for HA
+  enable_scheduled_scaling = var.environment != "prod"
   scale_down_cron          = "15 20 * * ? *"
   scale_up_cron            = "45 6 * * ? *"
+
+  # Cross-Region Backup for Disaster Recovery
+  enable_cross_region_backup        = var.enable_cross_region_backup
+  backup_replication_region         = var.backup_replication_region
+  backup_replication_retention_days = 14 # Keep DR backups for 2 weeks
+
+  # CloudWatch Alarms
+  enable_alarms         = true
+  alarm_email_endpoints = var.alarm_email_endpoints
 }

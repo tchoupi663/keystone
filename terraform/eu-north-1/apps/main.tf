@@ -72,11 +72,17 @@ module "apps" {
   task_cpu       = "256"
   task_memory    = "512"
 
-  desired_count          = 1
-  enable_execute_command = false
-  log_retention_days     = 14
-  enable_autoscaling     = true
-  enable_scheduled_scaling = true
+  desired_count                     = 1
+  enable_execute_command            = false
+  health_check_grace_period_seconds = 60
+  force_new_deployment              = false
+  log_retention_days                = 14
+  enable_autoscaling                = true
+  enable_scheduled_scaling          = true
+
+  # Deployment alarms & notifications
+  enable_deployment_alarms = true
+  alarm_email_endpoints    = [] # Add email addresses for deployment notifications
 
   # Nightly scale down
   scale_down_cron         = "0 21 * * ? *"

@@ -15,9 +15,9 @@ variable "grafana_loki_user" {
 }
 
 variable "environment" {
-  description = "Define the environment"
+  description = "Define the environment (dev, staging, prod)"
   type        = string
-  default     = "dev"
+  # No default - must be explicitly provided via tfvars
 }
 
 variable "project" {

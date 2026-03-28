@@ -63,43 +63,11 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # cloudflared uses port 7844 (QUIC/UDP) and falls back to TCP (HTTP2)
+  # cloudflared also uses port 7844 (QUIC) for tunnel connections
   egress {
-    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
+    description = "Allow QUIC for Cloudflare Tunnel"
     from_port   = 7844
     to_port     = 7844
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
-    from_port   = 7844
-    to_port     = 7844
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow DNS resolution"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow DNS resolution"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow NTP for clock sync"
-    from_port   = 123
-    to_port     = 123
     protocol    = "udp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -111,10 +79,13 @@ resource "aws_security_group" "ecs_tasks" {
     ManagedBy   = "terraform"
   }
 
-  lifecycle {
-    create_before_destroy = true
+  egress {
+    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
+    from_port   = 7844
+    to_port     = 7844
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-}
 
 
 module "ecs_cluster" {

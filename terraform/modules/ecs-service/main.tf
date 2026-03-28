@@ -320,7 +320,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name  = "alloy"
-      image = "grafana/alloy:latest"
+      image = var.alloy_image
       essential = true
 
       logConfiguration = {
@@ -352,7 +352,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
     {
       name      = "cloudflared"
-      image     = "cloudflare/cloudflared:latest"
+      image     = var.cloudflared_image
       essential = true
 
       entryPoint = ["cloudflared"]
@@ -465,7 +465,8 @@ resource "aws_ecs_service" "app" {
   desired_count   = var.desired_count
   launch_type     = length(var.capacity_provider_strategy) == 0 ? "FARGATE" : null
 
-  force_new_deployment = true
+  health_check_grace_period_seconds = var.health_check_grace_period_seconds
+  force_new_deployment              = var.force_new_deployment
 
   dynamic "capacity_provider_strategy" {
     for_each = var.capacity_provider_strategy
@@ -587,4 +588,115 @@ resource "aws_appautoscaling_scheduled_action" "scale_up" {
     min_capacity = var.scale_up_min_capacity
     max_capacity = var.scale_up_max_capacity
   }
+}
+
+
+# ──────────────────────────────────────────────
+# CloudWatch Alarms & SNS Notifications
+# ──────────────────────────────────────────────
+
+# SNS topic for deployment alarms
+resource "aws_sns_topic" "deployment_alarms" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  name              = "${var.project}-${var.environment}-deployment-alarms"
+  display_name      = "ECS Deployment Alarms - ${var.environment}"
+  kms_master_key_id = "alias/aws/sns"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-deployment-alarms"
+  })
+}
+
+# Email subscriptions for the SNS topic
+resource "aws_sns_topic_subscription" "deployment_alarms_email" {
+  for_each = var.enable_deployment_alarms ? toset(var.alarm_email_endpoints) : []
+
+  topic_arn = aws_sns_topic.deployment_alarms[0].arn
+  protocol  = "email"
+  endpoint  = each.value
+}
+
+# Alarm: ECS Running Task Count below desired
+resource "aws_cloudwatch_metric_alarm" "running_task_count" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-low-running-tasks"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "RunningTaskCount"
+  namespace           = "ECS/ContainerInsights"
+  period              = 60
+  statistic           = "Average"
+  threshold           = var.desired_count
+  alarm_description   = "ECS running tasks dropped below desired count for ${var.project}-${var.environment}. Possible task failure or deployment rollback."
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-low-running-tasks"
+  })
+}
+
+# Alarm: ECS Service CPU Utilization High
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_cpu_threshold
+  alarm_description   = "ECS CPU utilization exceeded ${var.alarm_cpu_threshold}% for ${var.project}-${var.environment}."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-cpu-high"
+  })
+}
+
+# Alarm: ECS Service Memory Utilization High
+resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
+  count = var.enable_deployment_alarms ? 1 : 0
+
+  alarm_name          = "${var.project}-${var.environment}-ecs-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alarm_memory_threshold
+  alarm_description   = "ECS memory utilization exceeded ${var.alarm_memory_threshold}% for ${var.project}-${var.environment}."
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ServiceName = aws_ecs_service.app.name
+    ClusterName = var.ecs_cluster_name
+  }
+
+  alarm_actions = [aws_sns_topic.deployment_alarms[0].arn]
+  ok_actions    = [aws_sns_topic.deployment_alarms[0].arn]
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-ecs-memory-high"
+  })
 }

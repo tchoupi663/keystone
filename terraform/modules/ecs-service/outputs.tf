@@ -54,3 +54,13 @@ output "log_group_name" {
   description = "Name of the CloudWatch log group for the ECS service"
   value       = aws_cloudwatch_log_group.app.name
 }
+
+
+# ──────────────────────────────────────────────
+# SNS & Alarms
+# ──────────────────────────────────────────────
+
+output "deployment_alarms_topic_arn" {
+  description = "ARN of the SNS topic for deployment alarms"
+  value       = var.enable_deployment_alarms ? aws_sns_topic.deployment_alarms[0].arn : null
+}
