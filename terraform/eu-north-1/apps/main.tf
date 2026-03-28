@@ -76,11 +76,11 @@ module "apps" {
   enable_execute_command = false
   log_retention_days     = 14
   enable_autoscaling     = true
-  enable_scheduled_scaling = true
+  enable_scheduled_scaling = false
 
   # Nightly scale down
-  scale_down_cron         = "0 21 * * ? *"
-  scale_up_cron           = "0 7 * * ? *"
+  #scale_down_cron         = "0 23 * * ? *"
+  #scale_up_cron           = "0 5 * * ? *"
   scale_down_min_capacity = 0
   scale_down_max_capacity = 0
   scale_up_min_capacity   = 1
