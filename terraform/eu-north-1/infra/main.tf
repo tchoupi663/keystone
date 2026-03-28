@@ -63,11 +63,43 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # cloudflared also uses port 7844 (QUIC) for tunnel connections
+  # cloudflared uses port 7844 (QUIC/UDP) and falls back to TCP (HTTP2)
   egress {
-    description = "Allow QUIC for Cloudflare Tunnel"
+    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
     from_port   = 7844
     to_port     = 7844
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow QUIC and TCP fallbacks for Cloudflare Tunnel"
+    from_port   = 7844
+    to_port     = 7844
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow DNS resolution"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow DNS resolution"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow NTP for clock sync"
+    from_port   = 123
+    to_port     = 123
     protocol    = "udp"
     cidr_blocks = ["0.0.0.0/0"]
   }

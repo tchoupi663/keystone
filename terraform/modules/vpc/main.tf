@@ -430,6 +430,26 @@ resource "aws_network_acl" "public" {
     to_port    = 65535
   }
 
+  # Allow UDP ephemeral ports for return traffic (required for QUIC)
+  ingress {
+    protocol   = "udp"
+    rule_no    = 210
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Allow inbound QUIC traffic from Cloudflare Edge
+  ingress {
+    protocol   = "udp"
+    rule_no    = 120
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 7844
+    to_port    = 7844
+  }
+
   # Allow all outbound
   egress {
     protocol   = "-1"

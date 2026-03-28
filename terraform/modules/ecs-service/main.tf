@@ -8,6 +8,11 @@ locals {
   container_name = "${var.project}-${var.environment}-app"
 
   alloy_config_b64 = base64encode(<<-EOT
+    logging {
+      level  = "debug"
+      format = "logfmt"
+    }
+
     prometheus.scrape "flask_app" {
       targets = [
         {"__address__" = "localhost:${var.container_port}"},
@@ -23,6 +28,11 @@ locals {
           username = "${var.grafana_prometheus_user}"
           password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
         }
+        
+        queue_config {
+          max_samples_per_send = 1000
+          batch_send_deadline  = "30s"
+        }
       }
     }
 
@@ -36,7 +46,7 @@ locals {
 
       output {
         traces = [otelcol.processor.transform.add_peer_service.input]
-        logs = [otelcol.exporter.loki.grafanacloud.input]
+        logs   = [otelcol.exporter.loki.grafanacloud.input]
       }
     }
 
@@ -63,6 +73,10 @@ locals {
           username = "${var.grafana_loki_user}"
           password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
         }
+      }
+      external_labels = {
+        job = "keystone-app",
+        env = "${var.environment}",
       }
     }
 
@@ -102,6 +116,7 @@ locals {
 # ──────────────────────────────────────────────
 
 resource "aws_security_group_rule" "rds_ingress_from_ecs" {
+  count                    = var.rds_security_group_id != null ? 1 : 0
   type                     = "ingress"
   description              = "Allow ECS tasks to connect to RDS"
   from_port                = var.db_port
@@ -184,6 +199,7 @@ resource "aws_iam_role_policy" "ecs_execution" {
 }
 
 resource "aws_iam_policy" "secrets_read" {
+  count       = var.db_master_user_secret_arn != null ? 1 : 0
   name        = "${var.project}-${var.environment}-ecs-secrets-read"
   description = "Allow ECS execution role to read RDS credentials from Secrets Manager"
 
@@ -200,8 +216,9 @@ resource "aws_iam_policy" "secrets_read" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_secrets" {
+  count      = var.db_master_user_secret_arn != null ? 1 : 0
   role       = aws_iam_role.ecs_execution.name
-  policy_arn = aws_iam_policy.secrets_read.arn
+  policy_arn = aws_iam_policy.secrets_read[0].arn
 }
 
 
@@ -377,22 +394,28 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
 
-      environment = [
-        { name = "DB_HOST", value = var.db_host },
-        { name = "DB_NAME", value = var.db_name },
-        { name = "DB_PORT", value = tostring(var.db_port) }
-      ]
+      environment = flatten([
+        [],
+        var.db_host != null ? [
+          { name = "DB_HOST", value = var.db_host },
+          { name = "DB_NAME", value = var.db_name },
+          { name = "DB_PORT", value = tostring(var.db_port) }
+        ] : []
+      ])
 
-      secrets = [
-        {
-          name      = "DB_USER"
-          valueFrom = "${var.db_master_user_secret_arn}:username::"
-        },
-        {
-          name      = "DB_PASSWORD"
-          valueFrom = "${var.db_master_user_secret_arn}:password::"
-        }
-      ]
+      secrets = flatten([
+        [],
+        var.db_master_user_secret_arn != null ? [
+          {
+            name      = "DB_USER"
+            valueFrom = "${var.db_master_user_secret_arn}:username::"
+          },
+          {
+            name      = "DB_PASSWORD"
+            valueFrom = "${var.db_master_user_secret_arn}:password::"
+          }
+        ] : []
+      ])
 
       logConfiguration = {
         logDriver = "awslogs"

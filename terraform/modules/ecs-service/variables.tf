@@ -61,16 +61,19 @@ variable "ecs_security_group_id" {
 variable "rds_security_group_id" {
   description = "Security group ID of the RDS instance (ECS tasks will be allowed ingress)"
   type        = string
+  default     = null
 }
 
 variable "db_host" {
   description = "RDS endpoint hostname (without port)"
   type        = string
+  default     = null
 }
 
 variable "db_name" {
   description = "Name of the database to connect to"
   type        = string
+  default     = null
 }
 
 variable "db_port" {
@@ -82,6 +85,7 @@ variable "db_port" {
 variable "db_master_user_secret_arn" {
   description = "ARN of the Secrets Manager secret containing the RDS master user credentials"
   type        = string
+  default     = null
 }
 
 
