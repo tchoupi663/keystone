@@ -38,10 +38,10 @@ locals {
 
     otelcol.receiver.otlp "otlp_receiver" {
       grpc {
-        endpoint = "0.0.0.0:4317"
+        endpoint = "127.0.0.1:4317"
       }
       http {
-        endpoint = "0.0.0.0:4318"
+        endpoint = "127.0.0.1:4318"
       }
 
       output {
@@ -160,9 +160,9 @@ resource "aws_iam_role_policy" "ecs_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "SSMAuth"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "SSMAuth"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.github_token_secret_arn]
       },
       {
@@ -183,15 +183,15 @@ resource "aws_iam_role_policy" "ecs_execution" {
       # This is needed because the key is passed via `secretOptions` in logConfiguration,
       # which ECS resolves using the *execution* role (not the task role).
       {
-        Sid    = "GrafanaSecret"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "GrafanaSecret"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.grafana_loki_api_key_secret_arn]
       },
       {
-        Sid    = "CloudflareTunnelToken"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "CloudflareTunnelToken"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.cloudflare_tunnel_token_secret_arn]
       }
     ]
@@ -264,6 +264,11 @@ resource "aws_iam_role_policy" "ecs_exec" {
           "ssmmessages:OpenDataChannel"
         ]
         Resource = "*"
+        Condition = {
+          ArnEquals = {
+            "ecs:cluster" = var.ecs_cluster_id
+          }
+        }
       }
     ]
   })
@@ -319,8 +324,8 @@ resource "aws_ecs_task_definition" "app" {
 
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
-      name  = "alloy"
-      image = "grafana/alloy:latest"
+      name      = "alloy"
+      image     = "grafana/alloy:v1.14.2"
       essential = true
 
       logConfiguration = {
@@ -337,7 +342,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "ALLOY_CONFIG_B64", value = local.alloy_config_b64 }
       ]
-      
+
       secrets = [
         {
           name      = "GRAFANA_API_KEY"
@@ -352,11 +357,11 @@ resource "aws_ecs_task_definition" "app" {
     # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
     {
       name      = "cloudflared"
-      image     = "cloudflare/cloudflared:latest"
+      image     = "cloudflare/cloudflared:2026.3.0"
       essential = true
 
       entryPoint = ["cloudflared"]
-      command    = ["tunnel", "--no-autoupdate", "run"]
+      command    = ["tunnel", "--no-autoupdate", "run", "--protocol", "http2"]
 
       linuxParameters = {
         initProcessEnabled = true
@@ -439,7 +444,7 @@ resource "aws_ecs_task_definition" "app" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${var.container_port}/health\")'"]
+        command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/health || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -495,6 +500,10 @@ resource "aws_ecs_service" "app" {
 
   lifecycle {
     ignore_changes = [desired_count]
+    precondition {
+      condition     = !(var.environment == "prod" && var.enable_execute_command)
+      error_message = "Security Policy: ECS Exec (enable_execute_command) must never be enabled in production environments."
+    }
   }
 
   tags = merge(local.common_tags, {
@@ -560,7 +569,7 @@ resource "aws_appautoscaling_policy" "memory" {
 # ──────────────────────────────────────────────
 
 resource "aws_appautoscaling_scheduled_action" "scale_down" {
-  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+  count = var.enable_autoscaling && var.enable_scheduled_scaling && var.scale_down_cron != "" ? 1 : 0
 
   name               = "${var.project}-${var.environment}-scale-down"
   service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace
@@ -575,7 +584,7 @@ resource "aws_appautoscaling_scheduled_action" "scale_down" {
 }
 
 resource "aws_appautoscaling_scheduled_action" "scale_up" {
-  count = var.enable_autoscaling && var.enable_scheduled_scaling ? 1 : 0
+  count = var.enable_autoscaling && var.enable_scheduled_scaling && var.scale_up_cron != "" ? 1 : 0
 
   name               = "${var.project}-${var.environment}-scale-up"
   service_namespace  = aws_appautoscaling_target.ecs[0].service_namespace

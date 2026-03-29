@@ -143,7 +143,7 @@ variable "desired_count" {
 }
 
 variable "enable_execute_command" {
-  description = "Enable ECS Exec (SSM-based shell access into containers) — useful for debugging"
+  description = "Enable ECS Exec (SSM-based shell access into containers) — useful for debugging. WARNING: Should NEVER be set to true in production environments."
   type        = bool
   default     = false
 }

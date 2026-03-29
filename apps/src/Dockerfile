@@ -2,23 +2,25 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required for psycopg and OTel build extensions
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
     python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+RUN pip install --no-cache-dir pip-tools
+
+COPY requirements.in .
+RUN pip-compile requirements.in -o requirements.txt
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# Flask typically runs on 8080 in this setup
 EXPOSE 8080
 
-# The command to start the app
 RUN adduser --disabled-password --no-create-home appuser
 USER appuser
 

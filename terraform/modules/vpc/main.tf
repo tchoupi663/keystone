@@ -169,18 +169,10 @@ resource "aws_security_group" "fck_nat" {
   vpc_id      = aws_vpc.vpc.id
 
   ingress {
-    description = "Allow HTTPS from VPC"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [var.cidr_block]
-  }
-
-  ingress {
-    description = "Allow HTTP from VPC"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
+    description = "Allow all traffic from VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = [var.cidr_block]
   }
 
@@ -401,6 +393,16 @@ resource "aws_network_acl" "public" {
   vpc_id     = aws_vpc.vpc.id
   subnet_ids = aws_subnet.subnet_public[*].id
 
+  # Allow all internal VPC traffic (needed so NAT instance can receive traffic)
+  ingress {
+    protocol   = "-1"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.cidr_block
+    from_port  = 0
+    to_port    = 0
+  }
+
   # Allow ephemeral ports for return traffic
   ingress {
     protocol   = "tcp"
@@ -473,6 +475,36 @@ resource "aws_network_acl" "private" {
 
   tags = merge(local.common_tags, {
     Name = "${var.environment}-private-nacl"
+  })
+}
+
+resource "aws_network_acl" "database" {
+  count      = var.enable_custom_nacls && var.database_subnets_count > 0 ? 1 : 0
+  vpc_id     = aws_vpc.vpc.id
+  subnet_ids = aws_subnet.subnet_database[*].id
+
+  # Allow inbound postgres from VPC CIDR
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.cidr_block
+    from_port  = 5432
+    to_port    = 5432
+  }
+
+  # Allow ephemeral port return traffic (egress) to VPC CIDR
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.cidr_block
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-database-nacl"
   })
 }
 

@@ -7,6 +7,8 @@ import time
 import datetime
 import random
 import logging
+import signal
+import sys
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -114,7 +116,8 @@ def health():
         conn = get_db_connection()
         conn.close()
         db_ok = True
-    except Exception:
+    except Exception as e:
+        logging.error(f"Database connection failed during health check: {e}")
         db_ok = False
     return jsonify({"status": "ok", "db": "ok" if db_ok else "unavailable"}), 200
 
@@ -150,6 +153,7 @@ def api_cost():
             ]
         })
     except Exception as e:
+        logging.error(f"Error serving /api/cost: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/cost')
@@ -178,6 +182,7 @@ def cost():
         cur.close()
         conn.close()
     except Exception as e:
+        logging.error(f"Error serving /cost page: {e}", exc_info=True)
         error = str(e)
 
     return render_template(
@@ -189,38 +194,21 @@ def cost():
     )
 
 
-# ──────────────────────────────────────────────
-# Startup: DB initialisation (with retry)
-# ──────────────────────────────────────────────
 
-def init_db(max_retries=12, retry_delay=5):
-    """Run the initialisation SQL script, retrying if the DB isn't ready yet."""
-    sql_path = os.path.join(os.path.dirname(__file__), 'init.pgsql')
-    with open(sql_path, 'r') as f:
-        sql_script = f.read()
-
-    for attempt in range(1, max_retries + 1):
-        logging.info(f"DB init attempt {attempt}/{max_retries}...")
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(sql_script)
-            conn.commit()
-            cur.close()
-            conn.close()
-            logging.info("Database initialised successfully!")
-            return
-        except Exception as e:
-            logging.info(f"DB not ready yet: {e}")
-            if attempt < max_retries:
-                time.sleep(retry_delay)
-
-    logging.info("WARNING: Could not initialise the database after all retries.")
 
 
 # ──────────────────────────────────────────────
 # Background: Prorated cost simulation
 # ──────────────────────────────────────────────
+
+shutdown_event = threading.Event()
+
+def handle_shutdown(signum, frame):
+    logging.info(f"Received signal {signum}, gracefully shutting down...")
+    shutdown_event.set()
+
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
 
 def update_costs():
     """Background thread that writes accumulated infracost estimates to the DB every hour.
@@ -235,7 +223,7 @@ def update_costs():
     PROJECT_START = datetime.date(2026, 2, 28)
     AVG_DAYS_PER_MONTH = 30.44
 
-    while True:
+    while not shutdown_event.is_set():
         logging.info("Updating cost data...")
         try:
             now = datetime.datetime.utcnow()
@@ -275,16 +263,26 @@ def update_costs():
             conn.close()
             logging.info("Cost data updated successfully.")
         except Exception as e:
-            logging.info(f"Failed to update cost data: {e}")
+            logging.error(f"Failed to update cost data: {e}", exc_info=True)
 
-        # Refresh every hour
-        time.sleep(3600)
+        # Refresh every hour, unless interrupted
+        shutdown_event.wait(3600)
 
-
+# ──────────────────────────────────────────────
+# Ensure initialization is run when imported by gunicorn
+# ──────────────────────────────────────────────
+# ──────────────────────────────────────────────
+# Runtime Initialization
+# ──────────────────────────────────────────────
 if __name__ == '__main__':
-    init_db()
-
+    logging.info("Starting Keystone application in development mode...")
+    # Initialize background threads here.
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()
-
+    
     app.run(host='0.0.0.0', port=8080)
+else:
+    logging.info("Starting Keystone application under Gunicorn...")
+    # Under Gunicorn, start background threads.
+    cost_thread = threading.Thread(target=update_costs, daemon=True)
+    cost_thread.start()
