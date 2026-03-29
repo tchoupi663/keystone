@@ -208,7 +208,7 @@ resource "cloudflare_ruleset" "custom_waf" {
     action       = "block"
     description  = "Block common probes and scanners"
     enabled      = true
-    expression   = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\")"
+    expression   = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\") or (http.request.uri.path contains \"/login\")"
     id           = null
     last_updated = "2026-03-28T16:37:23.618716Z"
     ref          = "305e9828d2c0403ebcba8248d49588a7"
