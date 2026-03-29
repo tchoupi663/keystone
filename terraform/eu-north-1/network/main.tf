@@ -68,7 +68,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared" "keystone_dev" {
 resource "aws_secretsmanager_secret" "tunnel_token" {
   name                    = "${var.project}/${var.environment}/cloudflare/tunnel-token"
   description             = "Cloudflare Tunnel Token for the ${var.project}-${var.environment} ECS sidecar"
-  recovery_window_in_days = 0 
+  recovery_window_in_days = 7
 }
 
 data "cloudflare_zero_trust_tunnel_cloudflared_token" "keystone_dev" {
@@ -265,10 +265,10 @@ resource "cloudflare_managed_transforms" "zone" {
     id      = "add_waf_credential_check_status_header"
   }]
   managed_response_headers = [{
-    enabled = false
+    enabled = true
     id      = "remove_x-powered-by_header"
     }, {
-    enabled = false
+    enabled = true
     id      = "add_security_headers"
   }]
 }
@@ -293,12 +293,12 @@ resource "cloudflare_email_routing_catch_all" "zone" {
 # ──────────────────────────────────────────────
 
 resource "cloudflare_zero_trust_organization" "account" {
-  account_id                                  = var.cloudflare_account_id
-  allow_authenticate_via_warp                 = false
-  auth_domain                                 = "edenkeystone.cloudflareaccess.com"
-  is_ui_read_only                             = false
-  name                                        = "edenkeystone.cloudflareaccess.com"
-  login_design                                = {}
+  account_id                  = var.cloudflare_account_id
+  allow_authenticate_via_warp = false
+  auth_domain                 = "edenkeystone.cloudflareaccess.com"
+  is_ui_read_only             = false
+  name                        = "edenkeystone.cloudflareaccess.com"
+  login_design                = {}
 }
 
 # ──────────────────────────────────────────────
@@ -380,7 +380,7 @@ resource "cloudflare_zero_trust_gateway_policy" "default_deny_private" {
   account_id  = var.cloudflare_account_id
   action      = "block"
   description = "A catch-all policy to block all private traffic destined for the RFC1918 address space. This is meant to be your lowest-precedence network policy, which enables you to build allow policies and Access Applications to grant users access to applications and services on your private network. It also includes the default assignment range for Cloudflare One client devices in the CGNat space."
-  enabled     = false
+  enabled     = true
   filters     = ["l4"]
   name        = "Default deny for private traffic"
   precedence  = 10000

@@ -56,7 +56,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state_lifecycle" {
 
     # Permanently delete older versions of the state file after 3 days to save costs
     noncurrent_version_expiration {
-      noncurrent_days = 3
+      noncurrent_days = 30
     }
 
     # Clean up any incomplete uploads

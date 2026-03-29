@@ -18,10 +18,10 @@ module "vpc" {
 
   enable_internet_gateway = true
 
-  # NAT disabled - ECS tasks now run in public subnets with public IPs,
-  # outbound traffic goes directly through the IGW.
-  enable_nat_gateway     = false
-  single_nat_gateway     = false
+  # NAT enabled using cost-effective fck-nat instance
+  enable_nat_gateway     = true
+  nat_type               = "instance"
+  single_nat_gateway     = true
   one_nat_gateway_per_az = false
 
   database_subnets_count       = var.database_subnets_count
@@ -196,17 +196,17 @@ resource "aws_iam_role" "firehose_delivery_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
+        Action    = "sts:AssumeRole"
         Principal = { Service = "firehose.amazonaws.com" }
-        Effect = "Allow"
+        Effect    = "Allow"
       }
     ]
   })
 }
 
 resource "aws_iam_role_policy" "firehose_delivery_policy" {
-  name   = "firehose_delivery_policy"
-  role   = aws_iam_role.firehose_delivery_role.id
+  name = "firehose_delivery_policy"
+  role = aws_iam_role.firehose_delivery_role.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -226,9 +226,11 @@ resource "aws_iam_role_policy" "firehose_delivery_policy" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["logs:PutLogEvents"]
-        Resource = ["*"]
+        Effect = "Allow"
+        Action = ["logs:PutLogEvents"]
+        Resource = [
+          "${aws_cloudwatch_log_group.firehose_errors.arn}:*"
+        ]
       }
     ]
   })
@@ -257,9 +259,9 @@ resource "aws_kinesis_firehose_delivery_stream" "vpc_flow_logs" {
   destination = "http_endpoint"
 
   tags = {
-    Environment      = var.environment
-    Project          = var.project
-    ManagedBy        = "terraform"
+    Environment        = var.environment
+    Project            = var.project
+    ManagedBy          = "terraform"
     LogDeliveryEnabled = "true"
   }
 
@@ -301,8 +303,22 @@ resource "aws_kinesis_firehose_delivery_stream" "vpc_flow_logs" {
 resource "aws_flow_log" "vpc" {
   log_destination      = aws_kinesis_firehose_delivery_stream.vpc_flow_logs.arn
   log_destination_type = "kinesis-data-firehose"
-  traffic_type         = "ALL" 
+  traffic_type         = "ALL"
   vpc_id               = module.vpc.vpc_id
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+    ManagedBy   = "terraform"
+  }
+}
+
+# ──────────────────────────────────────────────
+# IAM Access Analyzer
+# ──────────────────────────────────────────────
+resource "aws_accessanalyzer_analyzer" "main" {
+  analyzer_name = "${var.project}-${var.environment}-access-analyzer"
+  type          = "ACCOUNT"
 
   tags = {
     Environment = var.environment

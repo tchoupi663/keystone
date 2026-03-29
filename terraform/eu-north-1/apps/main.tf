@@ -42,11 +42,11 @@ module "apps" {
   project     = var.project
   region      = var.region
 
-  # Networking — ECS tasks in public subnets with public IPs
+  # Networking — ECS tasks in private subnets with NAT egress
   vpc_id     = data.terraform_remote_state.infra.outputs.vpc_id
-  subnet_ids = data.terraform_remote_state.infra.outputs.public_subnets
+  subnet_ids = data.terraform_remote_state.infra.outputs.private_subnets
 
-  assign_public_ip = true
+  assign_public_ip = false
 
   # Cluster
   ecs_cluster_id          = data.terraform_remote_state.infra.outputs.ecs_cluster_id
@@ -72,10 +72,10 @@ module "apps" {
   task_cpu       = "256"
   task_memory    = "512"
 
-  desired_count          = 1
-  enable_execute_command = false
-  log_retention_days     = 14
-  enable_autoscaling     = true
+  desired_count            = 1
+  enable_execute_command   = false
+  log_retention_days       = 14
+  enable_autoscaling       = true
   enable_scheduled_scaling = false
 
   # Nightly scale down
@@ -94,10 +94,10 @@ module "apps" {
   grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
 
   # Grafana Prometheus
-  grafana_prometheus_url          = var.grafana_prometheus_url
-  grafana_prometheus_user         = var.grafana_prometheus_user
+  grafana_prometheus_url  = var.grafana_prometheus_url
+  grafana_prometheus_user = var.grafana_prometheus_user
 
   # Grafana Tempo
-  grafana_tempo_endpoint          = var.grafana_tempo_endpoint
-  grafana_tempo_user              = var.grafana_tempo_user
+  grafana_tempo_endpoint = var.grafana_tempo_endpoint
+  grafana_tempo_user     = var.grafana_tempo_user
 }

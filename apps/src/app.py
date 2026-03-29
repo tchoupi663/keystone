@@ -116,7 +116,8 @@ def health():
         conn = get_db_connection()
         conn.close()
         db_ok = True
-    except Exception:
+    except Exception as e:
+        logging.error(f"Database connection failed during health check: {e}")
         db_ok = False
     return jsonify({"status": "ok", "db": "ok" if db_ok else "unavailable"}), 200
 
@@ -152,6 +153,7 @@ def api_cost():
             ]
         })
     except Exception as e:
+        logging.error(f"Error serving /api/cost: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/cost')
@@ -180,6 +182,7 @@ def cost():
         cur.close()
         conn.close()
     except Exception as e:
+        logging.error(f"Error serving /cost page: {e}", exc_info=True)
         error = str(e)
 
     return render_template(
@@ -260,7 +263,7 @@ def update_costs():
             conn.close()
             logging.info("Cost data updated successfully.")
         except Exception as e:
-            logging.info(f"Failed to update cost data: {e}")
+            logging.error(f"Failed to update cost data: {e}", exc_info=True)
 
         # Refresh every hour, unless interrupted
         shutdown_event.wait(3600)
@@ -272,12 +275,14 @@ def update_costs():
 # Runtime Initialization
 # ──────────────────────────────────────────────
 if __name__ == '__main__':
+    logging.info("Starting Keystone application in development mode...")
     # Initialize background threads here.
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()
     
     app.run(host='0.0.0.0', port=8080)
 else:
+    logging.info("Starting Keystone application under Gunicorn...")
     # Under Gunicorn, start background threads.
     cost_thread = threading.Thread(target=update_costs, daemon=True)
     cost_thread.start()

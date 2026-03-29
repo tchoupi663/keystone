@@ -38,10 +38,10 @@ locals {
 
     otelcol.receiver.otlp "otlp_receiver" {
       grpc {
-        endpoint = "0.0.0.0:4317"
+        endpoint = "127.0.0.1:4317"
       }
       http {
-        endpoint = "0.0.0.0:4318"
+        endpoint = "127.0.0.1:4318"
       }
 
       output {
@@ -160,9 +160,9 @@ resource "aws_iam_role_policy" "ecs_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "SSMAuth"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "SSMAuth"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.github_token_secret_arn]
       },
       {
@@ -183,15 +183,15 @@ resource "aws_iam_role_policy" "ecs_execution" {
       # This is needed because the key is passed via `secretOptions` in logConfiguration,
       # which ECS resolves using the *execution* role (not the task role).
       {
-        Sid    = "GrafanaSecret"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "GrafanaSecret"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.grafana_loki_api_key_secret_arn]
       },
       {
-        Sid    = "CloudflareTunnelToken"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "CloudflareTunnelToken"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.cloudflare_tunnel_token_secret_arn]
       }
     ]
@@ -264,6 +264,11 @@ resource "aws_iam_role_policy" "ecs_exec" {
           "ssmmessages:OpenDataChannel"
         ]
         Resource = "*"
+        Condition = {
+          ArnEquals = {
+            "ecs:cluster" = var.ecs_cluster_id
+          }
+        }
       }
     ]
   })
@@ -319,8 +324,8 @@ resource "aws_ecs_task_definition" "app" {
 
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
-      name  = "alloy"
-      image = "grafana/alloy:latest"
+      name      = "alloy"
+      image     = "grafana/alloy:v1.14.2"
       essential = true
 
       logConfiguration = {
@@ -337,7 +342,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "ALLOY_CONFIG_B64", value = local.alloy_config_b64 }
       ]
-      
+
       secrets = [
         {
           name      = "GRAFANA_API_KEY"
@@ -352,7 +357,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
     {
       name      = "cloudflared"
-      image     = "cloudflare/cloudflared:latest"
+      image     = "cloudflare/cloudflared:2026.3.0"
       essential = true
 
       entryPoint = ["cloudflared"]
@@ -495,6 +500,10 @@ resource "aws_ecs_service" "app" {
 
   lifecycle {
     ignore_changes = [desired_count]
+    precondition {
+      condition     = !(var.environment == "prod" && var.enable_execute_command)
+      error_message = "Security Policy: ECS Exec (enable_execute_command) must never be enabled in production environments."
+    }
   }
 
   tags = merge(local.common_tags, {
