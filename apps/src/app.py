@@ -20,7 +20,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.log_exporter import OTLPLogExporter
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
@@ -191,33 +191,7 @@ def cost():
     )
 
 
-# ──────────────────────────────────────────────
-# Startup: DB initialisation (with retry)
-# ──────────────────────────────────────────────
 
-def init_db(max_retries=12, retry_delay=5):
-    """Run the initialisation SQL script, retrying if the DB isn't ready yet."""
-    sql_path = os.path.join(os.path.dirname(__file__), 'init.pgsql')
-    with open(sql_path, 'r') as f:
-        sql_script = f.read()
-
-    for attempt in range(1, max_retries + 1):
-        logging.info(f"DB init attempt {attempt}/{max_retries}...")
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(sql_script)
-            conn.commit()
-            cur.close()
-            conn.close()
-            logging.info("Database initialised successfully!")
-            return
-        except Exception as e:
-            logging.info(f"DB not ready yet: {e}")
-            if attempt < max_retries:
-                time.sleep(retry_delay)
-
-    logging.info("WARNING: Could not initialise the database after all retries.")
 
 
 # ──────────────────────────────────────────────
@@ -294,9 +268,16 @@ def update_costs():
 # ──────────────────────────────────────────────
 # Ensure initialization is run when imported by gunicorn
 # ──────────────────────────────────────────────
-init_db()
-cost_thread = threading.Thread(target=update_costs, daemon=True)
-cost_thread.start()
-
+# ──────────────────────────────────────────────
+# Runtime Initialization
+# ──────────────────────────────────────────────
 if __name__ == '__main__':
+    # Initialize background threads here.
+    cost_thread = threading.Thread(target=update_costs, daemon=True)
+    cost_thread.start()
+    
     app.run(host='0.0.0.0', port=8080)
+else:
+    # Under Gunicorn, start background threads.
+    cost_thread = threading.Thread(target=update_costs, daemon=True)
+    cost_thread.start()

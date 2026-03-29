@@ -17,7 +17,7 @@ RUN pip-compile requirements.in -o requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=appuser:appuser . .
 
 EXPOSE 8080
 
