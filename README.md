@@ -28,7 +28,7 @@ The project is structured into five distinct Terraform layers to ensure clean is
 
 1.  **Network Layer (`terraform/eu-north-1/network/`)**: Manages Cloudflare resources, including the Zero Trust Tunnel and DNS records.
 2.  **Infra Layer (`terraform/eu-north-1/infra/`)**: Provisions the baseline VPC (Public/Private/DB subnets), ECS Cluster, and the Kinesis-to-Loki logging pipeline.
-3.  **Data Layer (`terraform/eu-north-1/data/`)**: Provisions the RDS PostgreSQL instance and handles secure credentials in AWS Secrets Manager.
+3.  **Data Layer (`terraform/eu-north-1/data/rds/`)**: Provisions the RDS PostgreSQL instance and handles secure credentials in AWS Secrets Manager.
 4.  **App Layer (`terraform/eu-north-1/apps/`)**: Deploys the ECS Fargate service with `cloudflared` and `alloy` sidecars for connectivity and telemetry.
 5.  **Observability Layer (`terraform/eu-north-1/observability/`)**: Manages Grafana dashboards and folders directly via Terraform.
 

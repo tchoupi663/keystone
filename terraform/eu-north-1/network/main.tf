@@ -341,21 +341,18 @@ resource "cloudflare_zero_trust_device_posture_rule" "warp" {
 # Zero Trust Gateway — Settings
 # ──────────────────────────────────────────────
 
+data "cloudflare_zero_trust_gateway_certificates" "account" {
+  account_id = var.cloudflare_account_id
+}
+
 resource "cloudflare_zero_trust_gateway_settings" "account" {
   account_id = var.cloudflare_account_id
   settings = {
-    activity_log = null
-    antivirus    = null
-    block_page   = null
     certificate = {
-      binding_status = "pending_deployment"
-      id             = "6ab46d2a-4ce3-4607-a989-09f17c0acb22"
-      qs_pack_id     = "9509fae9-3e6e-488a-9e16-1a059e9a348c"
-      updated_at     = "0001-01-01T00:00:00Z"
+      id = data.cloudflare_zero_trust_gateway_certificates.account.result[0].id
     }
-    fips = null
     tls_decrypt = {
-      enabled = false
+      enabled = true
     }
   }
 }

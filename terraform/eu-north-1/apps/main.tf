@@ -12,7 +12,7 @@ data "terraform_remote_state" "data" {
   backend = "s3"
   config = {
     bucket = "keystone-infra-terraform-state"
-    key    = "data/eu-north-1/data.tfstate"
+    key    = "data/eu-north-1/rds/data.tfstate"
     region = "eu-north-1"
   }
   #workspace = terraform.workspace
@@ -75,16 +75,20 @@ module "apps" {
   desired_count            = 1
   enable_execute_command   = false
   log_retention_days       = 14
-  enable_autoscaling       = true
-  enable_scheduled_scaling = false
 
+
+  enable_scheduled_scaling = false
   # Nightly scale down
-  #scale_down_cron         = "0 23 * * ? *"
-  #scale_up_cron           = "0 5 * * ? *"
-  scale_down_min_capacity = 0
-  scale_down_max_capacity = 0
-  scale_up_min_capacity   = 1
-  scale_up_max_capacity   = 1
+  # scale_down_cron         = "0 23 * * ? *"
+  # scale_up_cron           = "0 5 * * ? *"
+  # scale_down_min_capacity = 1
+  # scale_down_max_capacity = 1
+  # scale_up_min_capacity   = 1
+  # scale_up_max_capacity   = 3
+
+  enable_autoscaling       = true
+  min_capacity             = 1
+  max_capacity             = 3
 
   capacity_provider_strategy = var.capacity_provider_strategy
 
