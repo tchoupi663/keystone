@@ -72,9 +72,9 @@ module "apps" {
   task_cpu       = "256"
   task_memory    = "512"
 
-  desired_count            = 1
-  enable_execute_command   = false
-  log_retention_days       = 14
+  desired_count          = 1
+  enable_execute_command = false
+  log_retention_days     = 14
 
 
   enable_scheduled_scaling = false
@@ -86,9 +86,9 @@ module "apps" {
   # scale_up_min_capacity   = 1
   # scale_up_max_capacity   = 3
 
-  enable_autoscaling       = true
-  min_capacity             = 1
-  max_capacity             = 3
+  enable_autoscaling = true
+  min_capacity       = 1
+  max_capacity       = 3
 
   capacity_provider_strategy = var.capacity_provider_strategy
 
