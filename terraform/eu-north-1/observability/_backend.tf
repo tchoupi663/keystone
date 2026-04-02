@@ -1,10 +1,11 @@
+// TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+
 terraform {
-  required_version = ">= 1.5.0, < 2.0.0"
   backend "s3" {
     bucket       = "keystone-infra-terraform-state"
-    region       = "eu-north-1"
-    key          = "data/eu-north-1/data.tfstate"
-    use_lockfile = true
     encrypt      = true
+    key          = "observability/eu-north-1/observability.tfstate"
+    region       = "eu-north-1"
+    use_lockfile = true
   }
 }

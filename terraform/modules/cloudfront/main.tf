@@ -75,11 +75,11 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
 }
 
 resource "aws_cloudfront_distribution" "this" {
-  enabled             = true
-  is_ipv6_enabled     = true
-  comment             = "${var.project} ${var.environment} CDN"
-  price_class         = "PriceClass_100"
-  aliases             = ["demo.${var.domain_name}", var.domain_name]
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "${var.project} ${var.environment} CDN"
+  price_class     = "PriceClass_100"
+  aliases         = ["demo.${var.domain_name}", var.domain_name]
 
   # Primary Origin: ALB
   origin {
@@ -101,22 +101,22 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   default_cache_behavior {
-    target_origin_id           = "ALB"
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods             = ["GET", "HEAD"]
-    
+    target_origin_id       = "ALB"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods         = ["GET", "HEAD"]
+
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
   }
 
   ordered_cache_behavior {
-    path_pattern             = "/503_sleeping.html"
-    target_origin_id         = "S3-ErrorPages"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    
+    path_pattern           = "/503_sleeping.html"
+    target_origin_id       = "S3-ErrorPages"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
+
     cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 

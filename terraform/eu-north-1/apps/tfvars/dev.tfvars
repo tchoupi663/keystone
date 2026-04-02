@@ -1,18 +1,19 @@
 
-region      = "eu-north-1"
 environment = "dev"
-project     = "keystone"
 
 capacity_provider_strategy = [
   {
-    base              = 2
-    capacity_provider = "FARGATE_SPOT"
+    capacity_provider = "FARGATE"
+    weight            = 1
+    base              = 1
   },
   {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 2
     base              = 0
-    capacity_provider = "FARGATE"
   }
 ]
+
 github_token_secret_name = "keystone/dev/github-token"
 grafana_loki_user        = "1511095"
 

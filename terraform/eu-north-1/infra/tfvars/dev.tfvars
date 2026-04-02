@@ -1,7 +1,5 @@
 
-region      = "eu-north-1"
 environment = "dev"
-project     = "keystone"
 
 grafana_loki_host = "logs-prod-035.grafana.net"
 grafana_loki_user = "1511095"
