@@ -1,4 +1,4 @@
-// TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+// TERRAMATE GENERATED FILE - DO NOT EDIT
 
 terraform {
   required_version = ">= 1.5.0, < 2.0.0"

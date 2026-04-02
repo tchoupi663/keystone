@@ -3,7 +3,7 @@
 provider "aws" {
   region = "eu-north-1"
 }
-provider "grafana" {
-  url  = var.grafana_url
-  auth = var.grafana_auth
+provider "cloudflare" {
+}
+provider "random" {
 }

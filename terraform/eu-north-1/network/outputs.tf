@@ -1,11 +1,11 @@
 output "tunnel_id" {
   description = "ID of the dev Cloudflare Tunnel"
-  value       = cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id
+  value       = module.cloudflare.tunnel_id
 }
 
 output "tunnel_cname" {
   description = "CNAME target for the tunnel used by DNS records"
-  value       = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
+  value       = module.cloudflare.tunnel_cname
 }
 
 output "zone_id" {
@@ -22,5 +22,5 @@ output "account_id" {
 
 output "tunnel_token_secret_arn" {
   description = "ARN of the AWS Secret containing the Cloudflare Tunnel token"
-  value       = aws_secretsmanager_secret.tunnel_token.arn
+  value       = module.cloudflare.tunnel_token_secret_arn
 }

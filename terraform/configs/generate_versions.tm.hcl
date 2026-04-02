@@ -1,7 +1,7 @@
-generate_file "_terraform.tf" {
+generate_file "_versions.tf" {
   condition = tm_contains(terramate.stack.tags, "parent")
   content   = <<-EOF
-// TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+// TERRAMATE GENERATED FILE - DO NOT EDIT
 
 terraform {
   required_version = ">= 1.5.0, < 2.0.0"

@@ -9,21 +9,3 @@ variable "cloudflare_account_id" {
   type        = string
   sensitive   = true
 }
-
-variable "environment" {
-  description = "Deployment environment (e.g. dev, prod)"
-  type        = string
-  default     = "dev"
-}
-
-variable "project" {
-  description = "Project name"
-  type        = string
-  default     = "keystone"
-}
-
-variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "eu-north-1"
-}

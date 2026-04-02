@@ -1,7 +1,7 @@
 generate_file "_providers.tf" {
   condition = tm_contains(terramate.stack.tags, "parent")
   content   = <<-EOF
-// TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+// TERRAMATE GENERATED FILE - DO NOT EDIT
 
 %{ for p in global.providers ~}
 provider "${p}" {

@@ -1,4 +1,4 @@
-// TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+// TERRAMATE GENERATED FILE - DO NOT EDIT
 
 provider "aws" {
   region = "eu-north-1"

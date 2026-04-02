@@ -1,7 +1,7 @@
 generate_file "_tpl_terragrunt.hcl" {
   condition = tm_contains(terramate.stack.tags, "parent")
   content   = <<-EOF
-    // TERRAMATE: GENERATED AUTOMATICALLY DO NOT EDIT
+    // TERRAMATE GENERATED FILE - DO NOT EDIT
 
     terraform_binary = "terraform"
 
