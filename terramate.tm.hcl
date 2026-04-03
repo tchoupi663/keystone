@@ -105,7 +105,17 @@ script "apply" {
   job {
     name = "apply"
     commands = [
-      ["terragrunt", "apply"]
+      ["terragrunt", "apply", "-auto-approve"]
+    ]
+  }
+}
+
+script "destroy" {
+  description = "destroy"
+  job {
+    name = "destroy"
+    commands = [
+      ["terragrunt", "destroy", "-auto-approve"]
     ]
   }
 }

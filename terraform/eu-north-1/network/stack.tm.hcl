@@ -1,8 +1,8 @@
 stack {
   name        = "network"
   description = "network"
-  tags        = ["parent"]
-  before      = ["infra"]
+  tags        = ["parent", "network"]
+  before      = ["tag:infra"]
   id          = "430d090d-f338-462c-925c-691dd20e9460"
 }
 
