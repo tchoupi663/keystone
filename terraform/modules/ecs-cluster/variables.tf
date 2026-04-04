@@ -13,3 +13,13 @@ variable "enable_container_insights" {
   type        = bool
   default     = true
 }
+
+variable "vpc_id" {
+  description = "VPC ID where the cluster and tasks will reside"
+  type        = string
+}
+
+variable "vpc_cidr_block" {
+  description = "VPC CIDR block for security group rules"
+  type        = string
+}

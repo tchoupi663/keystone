@@ -5,7 +5,6 @@ data "terraform_remote_state" "infra" {
     key    = "infra/eu-north-1/infra.tfstate"
     region = "eu-north-1"
   }
-  #workspace = terraform.workspace
 }
 
 data "terraform_remote_state" "data" {
@@ -15,7 +14,6 @@ data "terraform_remote_state" "data" {
     key    = "data/eu-north-1/rds/data.tfstate"
     region = "eu-north-1"
   }
-  #workspace = terraform.workspace
 }
 
 data "terraform_remote_state" "network" {
@@ -28,11 +26,35 @@ data "terraform_remote_state" "network" {
 }
 
 data "aws_secretsmanager_secret" "github-token" {
-  name = var.github_token_secret_name
+  name = "${var.project}/${var.environment}/github-token"
 }
 
 data "aws_secretsmanager_secret" "grafana_loki_api_key" {
-  name = "keystone/${var.environment}/grafana-loki-api-key"
+  name = "${var.project}/${var.environment}/grafana-loki-api-key"
+}
+
+data "aws_ssm_parameter" "grafana_loki_host" {
+  name = "/${var.project}/${var.environment}/grafana/loki/host"
+}
+
+data "aws_ssm_parameter" "grafana_loki_user" {
+  name = "/${var.project}/${var.environment}/grafana/loki/user"
+}
+
+data "aws_ssm_parameter" "grafana_prometheus_url" {
+  name = "/${var.project}/${var.environment}/grafana/prometheus/url"
+}
+
+data "aws_ssm_parameter" "grafana_prometheus_user" {
+  name = "/${var.project}/${var.environment}/grafana/prometheus/user"
+}
+
+data "aws_ssm_parameter" "grafana_tempo_endpoint" {
+  name = "/${var.project}/${var.environment}/grafana/tempo/endpoint"
+}
+
+data "aws_ssm_parameter" "grafana_tempo_user" {
+  name = "/${var.project}/${var.environment}/grafana/tempo/user"
 }
 
 module "apps" {
@@ -68,40 +90,45 @@ module "apps" {
   # db_master_user_secret_arn = data.terraform_remote_state.data.outputs.rds_master_user_secret_arn
 
   # Container
-  container_port = 8080
-  task_cpu       = "256"
-  task_memory    = "512"
+  container_port = var.container_port
+  task_cpu       = var.task_cpu
+  task_memory    = var.task_memory
 
-  desired_count          = 1
-  enable_execute_command = false
-  log_retention_days     = 14
+  desired_count          = var.desired_count
+  enable_execute_command = var.enable_execute_command
+  log_retention_days     = var.log_retention_days
 
+  # Health Check
+  health_check_interval     = var.health_check_interval
+  health_check_timeout      = var.health_check_timeout
+  health_check_retries      = var.health_check_retries
+  health_check_start_period = var.health_check_start_period
 
-  enable_scheduled_scaling = false
+  enable_scheduled_scaling = var.enable_scheduled_scaling
   # Nightly scale down
-  # scale_down_cron         = "0 23 * * ? *"
-  # scale_up_cron           = "0 5 * * ? *"
-  # scale_down_min_capacity = 1
-  # scale_down_max_capacity = 1
-  # scale_up_min_capacity   = 1
-  # scale_up_max_capacity   = 3
+  scale_down_cron         = var.scale_down_cron
+  scale_up_cron           = var.scale_up_cron
+  scale_down_min_capacity = var.scale_down_min_capacity
+  scale_down_max_capacity = var.scale_down_max_capacity
+  scale_up_min_capacity   = var.scale_up_min_capacity
+  scale_up_max_capacity   = var.scale_up_max_capacity
 
-  enable_autoscaling = true
-  min_capacity       = 1
-  max_capacity       = 3
+  enable_autoscaling = var.enable_autoscaling
+  min_capacity       = var.min_capacity
+  max_capacity       = var.max_capacity
 
   capacity_provider_strategy = var.capacity_provider_strategy
 
   # Grafana Loki
-  grafana_loki_host               = "logs-prod-035.grafana.net"
-  grafana_loki_user               = var.grafana_loki_user
+  grafana_loki_host               = data.aws_ssm_parameter.grafana_loki_host.value
+  grafana_loki_user               = data.aws_ssm_parameter.grafana_loki_user.value
   grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
 
   # Grafana Prometheus
-  grafana_prometheus_url  = var.grafana_prometheus_url
-  grafana_prometheus_user = var.grafana_prometheus_user
+  grafana_prometheus_url  = data.aws_ssm_parameter.grafana_prometheus_url.value
+  grafana_prometheus_user = data.aws_ssm_parameter.grafana_prometheus_user.value
 
   # Grafana Tempo
-  grafana_tempo_endpoint = var.grafana_tempo_endpoint
-  grafana_tempo_user     = var.grafana_tempo_user
+  grafana_tempo_endpoint = data.aws_ssm_parameter.grafana_tempo_endpoint.value
+  grafana_tempo_user     = data.aws_ssm_parameter.grafana_tempo_user.value
 }

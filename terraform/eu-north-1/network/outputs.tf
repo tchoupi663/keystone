@@ -10,13 +10,13 @@ output "tunnel_cname" {
 
 output "zone_id" {
   description = "Cloudflare Zone ID (passthrough for downstream layers)"
-  value       = var.cloudflare_zone_id
+  value       = data.aws_ssm_parameter.cloudflare_zone_id.value
   sensitive   = true
 }
 
 output "account_id" {
   description = "Cloudflare Account ID (passthrough for downstream layers)"
-  value       = var.cloudflare_account_id
+  value       = data.aws_ssm_parameter.cloudflare_account_id.value
   sensitive   = true
 }
 

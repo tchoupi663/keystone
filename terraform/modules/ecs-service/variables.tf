@@ -123,6 +123,35 @@ variable "task_memory" {
 
 
 # ──────────────────────────────────────────────
+# Health Check
+# ──────────────────────────────────────────────
+
+variable "health_check_interval" {
+  description = "The approximate amount of time, in seconds, between health checks of an individual container."
+  type        = number
+  default     = 30
+}
+
+variable "health_check_timeout" {
+  description = "The amount of time, in seconds, to wait when expecting a response from a health check."
+  type        = number
+  default     = 5
+}
+
+variable "health_check_retries" {
+  description = "The number of times to retry a failed health check before the container is considered unhealthy."
+  type        = number
+  default     = 3
+}
+
+variable "health_check_start_period" {
+  description = "The optional grace period within which to provide containers time to bootstrap before failed health checks count towards the maximum number of retries."
+  type        = number
+  default     = 60
+}
+
+
+# ──────────────────────────────────────────────
 # Service
 # ──────────────────────────────────────────────
 
@@ -213,6 +242,35 @@ variable "memory_scaling_target" {
   description = "Target memory utilisation percentage for auto-scaling"
   type        = number
   default     = 80
+}
+
+variable "scaling_scale_in_cooldown" {
+  description = "The amount of time, in seconds, after a scale in activity completes before another scale in activity can start."
+  type        = number
+  default     = 300
+}
+
+variable "scaling_scale_out_cooldown" {
+  description = "The amount of time, in seconds, after a scale out activity completes before another scale out activity can start."
+  type        = number
+  default     = 60
+}
+
+
+# ──────────────────────────────────────────────
+# Sidecars
+# ──────────────────────────────────────────────
+
+variable "alloy_image_version" {
+  description = "Grafana Alloy Docker image version"
+  type        = string
+  default     = "v1.14.2"
+}
+
+variable "cloudflared_image_version" {
+  description = "Cloudflare Tunnel (cloudflared) Docker image version"
+  type        = string
+  default     = "2026.3.0"
 }
 
 # ── ADDED ─────────────────────────────────────────────────────────

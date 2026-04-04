@@ -203,7 +203,7 @@
           "refId": "A"
         }
       ],
-      "title": "Service Graph p95 Latency",
+      "title": "Service Graph - p95 Latency",
       "type": "timeseries"
     }
   ],

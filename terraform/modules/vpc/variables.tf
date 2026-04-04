@@ -184,3 +184,32 @@ variable "interface_endpoint_services" {
   # Example for EKS: ["ecr.api", "ecr.dkr", "sts", "logs", "elasticloadbalancing"]
   # Example for ECS: ["ecr.api", "ecr.dkr", "ecs", "ecs-agent", "ecs-telemetry", "logs"]
 }
+
+# ──────────────────────────────────────────────
+# VPC Flow Logs
+# ──────────────────────────────────────────────
+
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs"
+  type        = bool
+  default     = false
+}
+
+variable "flow_logs_loki_host" {
+  description = "Grafana Cloud Loki host for Firehose (needed if enable_flow_logs is true)"
+  type        = string
+  default     = ""
+}
+
+variable "flow_logs_loki_user" {
+  description = "Grafana user ID (needed if enable_flow_logs is true)"
+  type        = string
+  default     = ""
+}
+
+variable "flow_logs_token" {
+  description = "Grafana AWS token for Loki (needed if enable_flow_logs is true)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

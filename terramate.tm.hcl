@@ -26,6 +26,7 @@ globals {
   app_image_repository = "ghcr.io/tchoupi663/keystone"
 
   domain_name = "edenkeystone.com"
+  subdomains  = ["demo", "www"]
 
   # List of providers to generate for the stack
   # Can be overridden in stack.tm.hcl
@@ -76,6 +77,12 @@ generate_hcl "_common_variables.tf" {
       type        = string
       description = "Top Domain name"
       default     = global.domain_name
+    }
+
+    variable "subdomains" {
+      type        = list(string)
+      description = "List of subdomains"
+      default     = global.subdomains
     }
   }
 }

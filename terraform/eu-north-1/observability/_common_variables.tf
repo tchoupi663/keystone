@@ -19,3 +19,11 @@ variable "top_domain_name" {
   description = "Top Domain name"
   type        = string
 }
+variable "subdomains" {
+  default = [
+    "demo",
+    "www",
+  ]
+  description = "List of subdomains"
+  type        = list(string)
+}

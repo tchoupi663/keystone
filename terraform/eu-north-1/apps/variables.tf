@@ -25,32 +25,135 @@ variable "app_image_repository" {
   type        = string
 }
 
-variable "github_token_secret_name" {
-  description = "Name of the AWS Secrets Manager secret storing the GitHub Packages access token (JSON with username and password keys)"
-  type        = string
+# ──────────────────────────────────────────────
+# ECS Service configuration
+# ──────────────────────────────────────────────
+
+variable "container_port" {
+  description = "Port the container listens on"
+  type        = number
+  default     = 8080
 }
 
-variable "grafana_loki_user" {
-  description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
+variable "task_cpu" {
+  description = "CPU units for the Fargate task"
   type        = string
+  default     = "256"
 }
 
-variable "grafana_prometheus_url" {
-  description = "Grafana Cloud Prometheus remote-write URL"
+variable "task_memory" {
+  description = "Memory (MiB) for the Fargate task"
   type        = string
+  default     = "512"
 }
 
-variable "grafana_prometheus_user" {
-  description = "Grafana Cloud Prometheus numeric user ID."
-  type        = string
+variable "desired_count" {
+  description = "Number of ECS tasks to run"
+  type        = number
+  default     = 1
 }
 
-variable "grafana_tempo_endpoint" {
-  description = "Grafana Cloud Tempo remote-write URL"
-  type        = string
+variable "enable_execute_command" {
+  description = "Enable ECS Exec"
+  type        = bool
+  default     = false
 }
 
-variable "grafana_tempo_user" {
-  description = "Grafana Cloud Tempo numeric user ID."
-  type        = string
+variable "log_retention_days" {
+  description = "Number of days to retain CloudWatch logs"
+  type        = number
+  default     = 14
 }
+
+# ──────────────────────────────────────────────
+# Health Check
+# ──────────────────────────────────────────────
+
+variable "health_check_interval" {
+  description = "Time between health checks"
+  type        = number
+  default     = 30
+}
+
+variable "health_check_timeout" {
+  description = "Timeout for health check"
+  type        = number
+  default     = 5
+}
+
+variable "health_check_retries" {
+  description = "Number of health check retries"
+  type        = number
+  default     = 3
+}
+
+variable "health_check_start_period" {
+  description = "Grace period for container health check at startup"
+  type        = number
+  default     = 60
+}
+
+# ──────────────────────────────────────────────
+# Scaling
+# ──────────────────────────────────────────────
+
+variable "enable_autoscaling" {
+  description = "Enable auto-scaling for the ECS service"
+  type        = bool
+  default     = true
+}
+
+variable "min_capacity" {
+  description = "Minimum number of tasks"
+  type        = number
+  default     = 1
+}
+
+variable "max_capacity" {
+  description = "Maximum number of tasks"
+  type        = number
+  default     = 3
+}
+
+variable "enable_scheduled_scaling" {
+  description = "Enable scheduled scaling"
+  type        = bool
+  default     = false
+}
+
+variable "scale_down_cron" {
+  description = "Cron expression for scaling down"
+  type        = string
+  default     = "0 23 * * ? *"
+}
+
+variable "scale_up_cron" {
+  description = "Cron expression for scaling up"
+  type        = string
+  default     = "0 5 * * ? *"
+}
+
+variable "scale_down_min_capacity" {
+  description = "Min capacity during scale down"
+  type        = number
+  default     = 0
+}
+
+variable "scale_down_max_capacity" {
+  description = "Max capacity during scale down"
+  type        = number
+  default     = 0
+}
+
+variable "scale_up_min_capacity" {
+  description = "Min capacity during scale up"
+  type        = number
+  default     = 1
+}
+
+variable "scale_up_max_capacity" {
+  description = "Max capacity during scale up"
+  type        = number
+  default     = 3
+}
+

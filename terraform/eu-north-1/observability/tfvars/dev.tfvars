@@ -1,4 +1,10 @@
 environment = "dev"
-grafana_url = "https://edenkeystone.grafana.net"
 
-#export token
+dashboards = {
+  app = {
+    file = "app_dashboard.json"
+  }
+  infra = {
+    file = "infra_dashboard.json"
+  }
+}

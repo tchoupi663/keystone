@@ -325,7 +325,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── Grafana Alloy sidecar for Prometheus metrics
     {
       name      = "alloy"
-      image     = "grafana/alloy:v1.14.2"
+      image     = "grafana/alloy:${var.alloy_image_version}"
       essential = true
 
       logConfiguration = {
@@ -357,7 +357,7 @@ resource "aws_ecs_task_definition" "app" {
     # ── cloudflared sidecar — establishes an outbound tunnel to Cloudflare
     {
       name      = "cloudflared"
-      image     = "cloudflare/cloudflared:2026.3.0"
+      image     = "cloudflare/cloudflared:${var.cloudflared_image_version}"
       essential = true
 
       entryPoint = ["cloudflared"]
@@ -445,10 +445,10 @@ resource "aws_ecs_task_definition" "app" {
 
       healthCheck = {
         command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/health || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 60
+        interval    = var.health_check_interval
+        timeout     = var.health_check_timeout
+        retries     = var.health_check_retries
+        startPeriod = var.health_check_start_period
       }
     }
   ])
@@ -540,8 +540,8 @@ resource "aws_appautoscaling_policy" "cpu" {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
     target_value       = var.cpu_scaling_target
-    scale_in_cooldown  = 300
-    scale_out_cooldown = 60
+    scale_in_cooldown  = var.scaling_scale_in_cooldown
+    scale_out_cooldown = var.scaling_scale_out_cooldown
   }
 }
 
@@ -559,8 +559,8 @@ resource "aws_appautoscaling_policy" "memory" {
       predefined_metric_type = "ECSServiceAverageMemoryUtilization"
     }
     target_value       = var.memory_scaling_target
-    scale_in_cooldown  = 300
-    scale_out_cooldown = 60
+    scale_in_cooldown  = var.scaling_scale_in_cooldown
+    scale_out_cooldown = var.scaling_scale_out_cooldown
   }
 }
 

@@ -2,9 +2,11 @@
 # DNS Records
 # ──────────────────────────────────────────────
 
-resource "cloudflare_dns_record" "demo_cname" {
+resource "cloudflare_dns_record" "subdomain_cnames" {
+  for_each = toset(var.subdomains)
+
   content = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
-  name    = "demo.edenkeystone.com"
+  name    = "${each.key}.${var.domain_name}"
   proxied = true
   ttl     = 1
   type    = "CNAME"
@@ -14,21 +16,10 @@ resource "cloudflare_dns_record" "demo_cname" {
   }
 }
 
-resource "cloudflare_dns_record" "root_cname" {
+# Root DNS record — required so Cloudflare can catch and redirect it
+resource "cloudflare_dns_record" "root" {
   content = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
-  name    = "edenkeystone.com"
-  proxied = true
-  ttl     = 1
-  type    = "CNAME"
-  zone_id = var.cloudflare_zone_id
-  settings = {
-    flatten_cname = false
-  }
-}
-
-resource "cloudflare_dns_record" "www_cname" {
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
-  name    = "www.edenkeystone.com"
+  name    = var.domain_name
   proxied = true
   ttl     = 1
   type    = "CNAME"
@@ -78,24 +69,18 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "keystone_dev" {
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id
 
   config = {
-    ingress = [
-      {
-        hostname = "demo.edenkeystone.com"
+    ingress = concat(
+      [for s in var.subdomains : {
+        hostname = "${s}.${var.domain_name}"
         service  = "http://localhost:8080"
-      },
-      {
-        hostname = "edenkeystone.com"
-        service  = "http://localhost:8080"
-      },
-      {
-        hostname = "www.edenkeystone.com"
-        service  = "http://localhost:8080"
-      },
-      # Catch-all — required by cloudflared
-      {
-        service = "http_status:404"
-      }
-    ]
+      }],
+      [
+        # Catch-all — required by cloudflared
+        {
+          service = "http_status:404"
+        }
+      ]
+    )
   }
 }
 
@@ -108,21 +93,18 @@ resource "cloudflare_ruleset" "rate_limit_leaked_credentials" {
   name    = "default"
   phase   = "http_ratelimit"
   zone_id = var.cloudflare_zone_id
-  rules = [{
-    action       = "block"
-    description  = "Leaked credential check"
-    enabled      = true
-    expression   = "(cf.waf.credential_check.password_leaked)"
-    id           = null
-    last_updated = "2026-03-24T19:48:24.795548Z"
+
+  rules = [for r in coalesce(var.waf_rate_limit_rules, []) : {
+    action      = r.action
+    description = r.description
+    enabled     = r.enabled
+    expression  = r.expression
     ratelimit = {
-      characteristics     = ["ip.src", "cf.colo.id"]
-      mitigation_timeout  = 10
-      period              = 10
-      requests_per_period = 5
+      characteristics     = r.ratelimit.characteristics
+      mitigation_timeout  = r.ratelimit.mitigation_timeout
+      period              = r.ratelimit.period
+      requests_per_period = r.ratelimit.requests_per_period
     }
-    ref     = "392a0b3821d44ac694fe43628e3bffbb"
-    version = "1"
   }]
 }
 
@@ -156,13 +138,13 @@ resource "cloudflare_ruleset" "http_to_https_redirect" {
         preserve_query_string = true
         status_code           = 301
         target_url = {
-          expression = "concat(\"https://demo.edenkeystone.com\", http.request.uri.path)"
+          expression = "concat(\"https://${var.subdomains[0]}.${var.domain_name}\", http.request.uri.path)"
         }
       }
     }
-    description  = "Redirect to a different domain"
+    description  = "Redirect Root and WWW to Primary Subdomain"
     enabled      = true
-    expression   = "(http.host in {\"edenkeystone.com\" \"www.edenkeystone.com\"})"
+    expression   = "(http.host eq \"${var.domain_name}\" or http.host eq \"www.${var.domain_name}\")"
     id           = null
     last_updated = "2026-03-28T16:25:48.327768Z"
     ref          = "abb327a8219b4431be0e975ce32335b6"
@@ -175,33 +157,12 @@ resource "cloudflare_ruleset" "custom_waf" {
   name    = "Custom WAF Rules"
   phase   = "http_request_firewall_custom"
   zone_id = var.cloudflare_zone_id
-  rules = [{
-    action       = "block"
-    description  = "Block /health endpoint"
-    enabled      = true
-    expression   = "(http.request.uri.path eq \"/health\")"
-    id           = null
-    last_updated = "2026-03-25T20:22:24.595069Z"
-    ref          = "b0bcfb27e837440291486fb70d606210"
-    version      = "1"
-    }, {
-    action       = "block"
-    description  = "Block main domain"
-    enabled      = false
-    expression   = "(http.host eq \"edenkeystone.com\")"
-    id           = null
-    last_updated = "2026-03-28T16:17:31.539009Z"
-    ref          = "3c95b139263d47ceaed32eff90ee2a80"
-    version      = "2"
-    }, {
-    action       = "block"
-    description  = "Block common probes and scanners"
-    enabled      = true
-    expression   = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\") or (http.request.uri.path contains \"/login\")"
-    id           = null
-    last_updated = "2026-03-28T16:37:23.618716Z"
-    ref          = "305e9828d2c0403ebcba8248d49588a7"
-    version      = "2"
+
+  rules = [for r in coalesce(var.waf_custom_rules, []) : {
+    action      = r.action
+    description = r.description
+    enabled     = r.enabled
+    expression  = r.expression
   }]
 }
 
@@ -210,7 +171,7 @@ resource "cloudflare_ruleset" "custom_waf" {
 # ──────────────────────────────────────────────
 
 resource "cloudflare_tiered_cache" "zone" {
-  value   = "off"
+  value   = coalesce(var.tiered_cache, "off")
   zone_id = var.cloudflare_zone_id
 }
 
@@ -218,10 +179,12 @@ resource "cloudflare_tiered_cache" "zone" {
 # Page Rules
 # ──────────────────────────────────────────────
 
-resource "cloudflare_page_rule" "demo_browser_cache" {
+resource "cloudflare_page_rule" "subdomain_browser_cache" {
+  for_each = toset(var.subdomains)
+
   priority = 1
   status   = "active"
-  target   = "demo.edenkeystone.com/*"
+  target   = "${each.key}.${var.domain_name}/*"
   zone_id  = var.cloudflare_zone_id
   actions = {
     browser_cache_ttl = 86400
@@ -234,25 +197,15 @@ resource "cloudflare_page_rule" "demo_browser_cache" {
 
 resource "cloudflare_managed_transforms" "zone" {
   zone_id = var.cloudflare_zone_id
-  managed_request_headers = [{
-    enabled = true
-    id      = "add_client_certificate_headers"
-    }, {
-    enabled = true
-    id      = "add_visitor_location_headers"
-    }, {
-    enabled = true
-    id      = "remove_visitor_ip_headers"
-    }, {
-    enabled = true
-    id      = "add_waf_credential_check_status_header"
+
+  managed_request_headers = [for h in try(var.managed_transforms.request_headers, []) : {
+    enabled = h.enabled
+    id      = h.id
   }]
-  managed_response_headers = [{
-    enabled = true
-    id      = "remove_x-powered-by_header"
-    }, {
-    enabled = true
-    id      = "add_security_headers"
+
+  managed_response_headers = [for h in try(var.managed_transforms.response_headers, []) : {
+    enabled = h.enabled
+    id      = h.id
   }]
 }
 
@@ -261,7 +214,7 @@ resource "cloudflare_managed_transforms" "zone" {
 # ──────────────────────────────────────────────
 
 resource "cloudflare_email_routing_catch_all" "zone" {
-  enabled = false
+  enabled = coalesce(var.email_routing_catch_all_enabled, false)
   zone_id = var.cloudflare_zone_id
   actions = [{
     type = "drop"
@@ -278,9 +231,9 @@ resource "cloudflare_email_routing_catch_all" "zone" {
 resource "cloudflare_zero_trust_organization" "account" {
   account_id                  = var.cloudflare_account_id
   allow_authenticate_via_warp = false
-  auth_domain                 = "edenkeystone.cloudflareaccess.com"
+  auth_domain                 = "${split(".", var.domain_name)[0]}.cloudflareaccess.com"
   is_ui_read_only             = false
-  name                        = "edenkeystone.cloudflareaccess.com"
+  name                        = "${split(".", var.domain_name)[0]}.cloudflareaccess.com"
   login_design                = {}
 }
 
@@ -344,31 +297,22 @@ resource "cloudflare_zero_trust_gateway_settings" "account" {
 # Zero Trust Gateway — Policies
 # ──────────────────────────────────────────────
 
-resource "cloudflare_zero_trust_gateway_policy" "do_not_inspect" {
-  account_id    = var.cloudflare_account_id
-  action        = "off"
-  description   = "This policy excludes from inspection applications which are known to have desktop apps with certificate pinning."
-  enabled       = true
-  filters       = ["http"]
-  name          = "Do Not Inspect"
-  precedence    = 0
-  traffic       = "any(app.type.ids[*] in {16})"
-  rule_settings = {}
-}
+resource "cloudflare_zero_trust_gateway_policy" "policies" {
+  for_each   = { for p in coalesce(var.zero_trust_gateway_policy, []) : p.name => p }
+  account_id = var.cloudflare_account_id
 
-resource "cloudflare_zero_trust_gateway_policy" "default_deny_private" {
-  account_id  = var.cloudflare_account_id
-  action      = "block"
-  description = "A catch-all policy to block all private traffic destined for the RFC1918 address space."
-  enabled     = true
-  filters     = ["l4"]
-  name        = "Default deny for private traffic"
-  precedence  = 10000
-  traffic     = "net.dst.ip in {10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.96.0.0/12}"
-  rule_settings = {
-    notification_settings = {
-      enabled = true
-      msg     = "This connection has been blocked by your account default-deny network policy."
-    }
-  }
+  action      = each.value.action
+  description = each.value.description
+  enabled     = each.value.enabled
+  filters     = each.value.filters
+  name        = each.value.name
+  precedence  = each.value.precedence
+  traffic     = each.value.traffic
+
+  rule_settings = each.value.rule_settings != null ? {
+    notification_settings = each.value.rule_settings.notification_settings != null ? {
+      enabled = each.value.rule_settings.notification_settings.enabled
+      msg     = each.value.rule_settings.notification_settings.msg
+    } : null
+  } : null
 }
