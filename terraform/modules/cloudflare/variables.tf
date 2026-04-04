@@ -20,6 +20,30 @@ variable "cloudflare_account_id" {
   sensitive   = true
 }
 
+variable "region" {
+  description = "Define the region"
+  type        = string
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+locals {
+  common_tags = merge(
+    {
+      Environment = var.environment
+      Project     = var.project
+      Region      = var.region
+      ManagedBy   = "terraform"
+      Module      = "cloudflare"
+    },
+    var.tags
+  )
+}
+
 variable "domain_name" {
   description = "Top-level domain name"
   type        = string
@@ -28,6 +52,11 @@ variable "domain_name" {
 variable "subdomains" {
   description = "List of subdomains for the application"
   type        = list(string)
+
+  validation {
+    condition     = length(var.subdomains) > 0
+    error_message = "At least one subdomain must be provided as it is used as the primary redirect target in the Cloudflare ruleset."
+  }
 }
 
 variable "waf_rate_limit_rules" {
@@ -71,29 +100,7 @@ variable "waf_custom_rules" {
     expression  = string
     description = optional(string, "")
   }))
-  default = [
-    {
-      action      = "block"
-      description = "Block /health endpoint"
-      enabled     = true
-      expression  = "(http.request.uri.path eq \"/health\")"
-      name        = "Block Health Endpoint"
-    },
-    {
-      action      = "block"
-      description = "Block main domain"
-      enabled     = false
-      expression  = "(http.host eq \"edenkeystone.com\")"
-      name        = "Block main domain"
-    },
-    {
-      action      = "block"
-      description = "Block common probes and scanners"
-      enabled     = true
-      expression  = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\") or (http.request.uri.path contains \"/login\")"
-      name        = "Block Probes and Scanners"
-    }
-  ]
+  default = []
 }
 
 variable "managed_transforms" {
@@ -177,4 +184,10 @@ variable "email_routing_catch_all_enabled" {
   description = "Is Email Routing catch-all enabled?"
   type        = bool
   default     = false
+}
+
+variable "tunnel_origin_port" {
+  description = "Port the tunnel sidecar should connect to (internal app port)"
+  type        = number
+  default     = 8080
 }

@@ -27,3 +27,8 @@ variable "subdomains" {
   description = "List of subdomains"
   type        = list(string)
 }
+variable "terraform_state_bucket" {
+  default     = "keystone-infra-terraform-state"
+  description = "Terraform remote state bucket name"
+  type        = string
+}

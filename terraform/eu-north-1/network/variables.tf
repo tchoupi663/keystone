@@ -149,3 +149,15 @@ variable "email_routing_catch_all_enabled" {
   type        = bool
   default     = false
 }
+
+variable "tunnel_origin_port" {
+  description = "Internal port exposed by the application (used by cloudflared)"
+  type        = number
+  default     = 8080
+}
+
+variable "tags" {
+  description = "Resource tags"
+  type        = map(string)
+  default     = {}
+}

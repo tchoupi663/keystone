@@ -3,7 +3,7 @@ generate_hcl "_backend.tf" {
   content {
     terraform {
       backend "s3" {
-        bucket               = "keystone-infra-terraform-state"
+        bucket               = global.terraform_state_bucket
         key                  = "${terramate.stack.name}/${global.region}/${terramate.stack.name}.tfstate"
         region               = global.region
         use_lockfile         = true

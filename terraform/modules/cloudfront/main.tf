@@ -1,11 +1,4 @@
-locals {
-  common_tags = {
-    Environment = var.environment
-    Project     = var.project
-    ManagedBy   = "terraform"
-    Module      = "cloudfront"
-  }
-}
+# Cloudfront resources
 
 resource "aws_s3_bucket" "error_pages" {
   bucket_prefix = "${var.project}-${var.environment}-error-pages-"

@@ -1,10 +1,4 @@
 locals {
-  common_tags = {
-    Environment = var.environment
-    Project     = var.project
-    ManagedBy   = "terraform"
-  }
-
   cloudflare_ipv4 = [
     "173.245.48.0/20",
     "103.21.244.0/22",

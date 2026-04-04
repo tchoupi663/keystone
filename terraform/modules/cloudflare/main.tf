@@ -2,10 +2,37 @@
 # DNS Records
 # ──────────────────────────────────────────────
 
+locals {
+  # Default WAF Custom Rules with dynamic domain interpolation
+  default_waf_custom_rules = [
+    {
+      action      = "block"
+      description = "Block /health endpoint"
+      enabled     = true
+      expression  = "(http.request.uri.path eq \"/health\")"
+      name        = "Block Health Endpoint"
+    },
+    {
+      action      = "block"
+      description = "Block main domain"
+      enabled     = false
+      expression  = "(http.host eq \"${var.domain_name}\")"
+      name        = "Block main domain"
+    },
+    {
+      action      = "block"
+      description = "Block common probes and scanners"
+      enabled     = true
+      expression  = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\") or (http.request.uri.path contains \"/login\")"
+      name        = "Block Probes and Scanners"
+    }
+  ]
+}
+
 resource "cloudflare_dns_record" "subdomain_cnames" {
   for_each = toset(var.subdomains)
 
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.this.id}.cfargotunnel.com"
   name    = "${each.key}.${var.domain_name}"
   proxied = true
   ttl     = 1
@@ -18,7 +45,7 @@ resource "cloudflare_dns_record" "subdomain_cnames" {
 
 # Root DNS record — required so Cloudflare can catch and redirect it
 resource "cloudflare_dns_record" "root" {
-  content = "${cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id}.cfargotunnel.com"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.this.id}.cfargotunnel.com"
   name    = var.domain_name
   proxied = true
   ttl     = 1
@@ -38,7 +65,7 @@ resource "random_password" "tunnel_secret" {
   special = false
 }
 
-resource "cloudflare_zero_trust_tunnel_cloudflared" "keystone_dev" {
+resource "cloudflare_zero_trust_tunnel_cloudflared" "this" {
   account_id    = var.cloudflare_account_id
   config_src    = "cloudflare"
   name          = "${var.project}-${var.environment}"
@@ -51,28 +78,28 @@ resource "aws_secretsmanager_secret" "tunnel_token" {
   recovery_window_in_days = 7
 }
 
-data "cloudflare_zero_trust_tunnel_cloudflared_token" "keystone_dev" {
+data "cloudflare_zero_trust_tunnel_cloudflared_token" "this" {
   account_id = var.cloudflare_account_id
-  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.this.id
 
   # Ensure we fetch the token AFTER the tunnel resource is ready
-  depends_on = [cloudflare_zero_trust_tunnel_cloudflared.keystone_dev]
+  depends_on = [cloudflare_zero_trust_tunnel_cloudflared.this]
 }
 
 resource "aws_secretsmanager_secret_version" "tunnel_token" {
   secret_id     = aws_secretsmanager_secret.tunnel_token.id
-  secret_string = data.cloudflare_zero_trust_tunnel_cloudflared_token.keystone_dev.token
+  secret_string = data.cloudflare_zero_trust_tunnel_cloudflared_token.this.token
 }
 
-resource "cloudflare_zero_trust_tunnel_cloudflared_config" "keystone_dev" {
+resource "cloudflare_zero_trust_tunnel_cloudflared_config" "this" {
   account_id = var.cloudflare_account_id
-  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.keystone_dev.id
+  tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.this.id
 
   config = {
     ingress = concat(
       [for s in var.subdomains : {
         hostname = "${s}.${var.domain_name}"
-        service  = "http://localhost:8080"
+        service  = "http://localhost:${var.tunnel_origin_port}"
       }],
       [
         # Catch-all — required by cloudflared
@@ -127,10 +154,6 @@ resource "cloudflare_ruleset" "http_to_https_redirect" {
     description  = "Redirect from HTTP to HTTPS"
     enabled      = true
     expression   = "(http.request.full_uri wildcard r\"http://*\")"
-    id           = null
-    last_updated = "2026-03-28T16:18:00.906751Z"
-    ref          = "779d4b8d34834b75a28723c643f42e43"
-    version      = "1"
     }, {
     action = "redirect"
     action_parameters = {
@@ -145,10 +168,6 @@ resource "cloudflare_ruleset" "http_to_https_redirect" {
     description  = "Redirect Root and WWW to Primary Subdomain"
     enabled      = true
     expression   = "(http.host eq \"${var.domain_name}\" or http.host eq \"www.${var.domain_name}\")"
-    id           = null
-    last_updated = "2026-03-28T16:25:48.327768Z"
-    ref          = "abb327a8219b4431be0e975ce32335b6"
-    version      = "3"
   }]
 }
 
@@ -158,7 +177,7 @@ resource "cloudflare_ruleset" "custom_waf" {
   phase   = "http_request_firewall_custom"
   zone_id = var.cloudflare_zone_id
 
-  rules = [for r in coalesce(var.waf_custom_rules, []) : {
+  rules = [for r in concat(local.default_waf_custom_rules, coalesce(var.waf_custom_rules, [])) : {
     action      = r.action
     description = r.description
     enabled     = r.enabled

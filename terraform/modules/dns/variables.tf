@@ -3,6 +3,35 @@ variable "domain_name" {
   type        = string
 }
 
+variable "project" {
+  description = "Project name"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+locals {
+  common_tags = merge(
+    {
+      Environment = var.environment
+      Project     = var.project
+      Region      = var.region
+      ManagedBy   = "terraform"
+      Module      = "dns"
+    },
+    var.tags
+  )
+}
+
 variable "alb_dns_name" {
   description = "DNS name of the ALB"
   type        = string

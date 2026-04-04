@@ -4,7 +4,7 @@ generate_file "_versions.tf" {
 // TERRAMATE GENERATED FILE - DO NOT EDIT
 
 terraform {
-  required_version = ">= 1.5.0, < 2.0.0"
+  required_version = ">= 1.10.0, < 2.0.0"
   required_providers {
   %{ for p in global.providers ~}
   ${p} = {

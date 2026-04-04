@@ -1,114 +1,16 @@
 locals {
-  common_tags = {
-    Environment = var.environment
-    Project     = var.project
-    ManagedBy   = "terraform"
-  }
-
   container_name = "${var.project}-${var.environment}-app"
 
-  alloy_config_b64 = base64encode(<<-EOT
-    logging {
-      level  = "debug"
-      format = "logfmt"
-    }
-
-    prometheus.scrape "flask_app" {
-      targets = [
-        {"__address__" = "localhost:${var.container_port}"},
-      ]
-      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-      scrape_interval = "60s"
-    }
-
-    prometheus.remote_write "grafana_cloud" {
-      endpoint {
-        url = "${var.grafana_prometheus_url}"
-        basic_auth {
-          username = "${var.grafana_prometheus_user}"
-          password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
-        }
-        
-        queue_config {
-          max_samples_per_send = 1000
-          batch_send_deadline  = "30s"
-        }
-      }
-    }
-
-    otelcol.receiver.otlp "otlp_receiver" {
-      grpc {
-        endpoint = "127.0.0.1:4317"
-      }
-      http {
-        endpoint = "127.0.0.1:4318"
-      }
-
-      output {
-        traces = [otelcol.processor.transform.add_peer_service.input]
-        logs   = [otelcol.exporter.loki.grafanacloud.input]
-      }
-    }
-
-    otelcol.processor.transform "add_peer_service" {
-      error_mode = "ignore"
-      trace_statements {
-        context = "span"
-        statements = [
-          "set(span.attributes[\"peer.service\"], span.attributes[\"db.system\"]) where span.attributes[\"peer.service\"] == nil and span.attributes[\"db.system\"] != nil",
-        ]
-      }
-      output {
-        traces = [
-          otelcol.exporter.otlp.grafanacloud.input,
-          otelcol.connector.servicegraph.default.input,
-        ]
-      }
-    }
-
-    loki.write "grafanacloud" {
-      endpoint {
-        url = "https://${var.grafana_loki_host}/loki/api/v1/push"
-        basic_auth {
-          username = "${var.grafana_loki_user}"
-          password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
-        }
-      }
-      external_labels = {
-        job = "keystone-app",
-        env = "${var.environment}",
-      }
-    }
-
-    otelcol.exporter.loki "grafanacloud" {
-      forward_to = [loki.write.grafanacloud.receiver]
-    }
-
-    otelcol.connector.servicegraph "default" {
-      dimensions = ["http.method", "http.target"]
-      output {
-        metrics = [otelcol.exporter.prometheus.servicegraphs.input]
-      }
-    }
-
-    otelcol.exporter.prometheus "servicegraphs" {
-      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-      add_metric_suffixes = false
-    }
-
-    otelcol.exporter.otlp "grafanacloud" {
-      client {
-        endpoint = "${var.grafana_tempo_endpoint}"
-        auth     = otelcol.auth.basic.grafanacloud.handler
-      }
-    }
-
-    otelcol.auth.basic "grafanacloud" {
-      username = "${var.grafana_tempo_user}"
-      password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
-    }
-  EOT
-  )
+  alloy_config_b64 = base64encode(templatefile("${path.module}/templates/alloy-config.alloy.tpl", {
+    container_port          = var.container_port
+    environment             = var.environment
+    grafana_prometheus_url  = var.grafana_prometheus_url
+    grafana_prometheus_user = var.grafana_prometheus_user
+    grafana_loki_host       = var.grafana_loki_host
+    grafana_loki_user       = var.grafana_loki_user
+    grafana_tempo_endpoint  = var.grafana_tempo_endpoint
+    grafana_tempo_user      = var.grafana_tempo_user
+  }))
 }
 
 # ──────────────────────────────────────────────
@@ -286,6 +188,8 @@ resource "aws_cloudwatch_log_group" "app" {
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.environment}-ecs-logs"
   })
+
+  # no kms key
 }
 
 resource "aws_cloudwatch_log_group" "alloy" {
@@ -399,6 +303,10 @@ resource "aws_ecs_task_definition" "app" {
       name      = local.container_name
       image     = var.app_image
       essential = true
+      
+      # Guaranteed memory for the app (Task Total - sidecars 128x2)
+      memoryReservation = tonumber(var.task_memory) - 256
+
       repositoryCredentials = {
         credentialsParameter = var.github_token_secret_arn
       }
@@ -470,7 +378,7 @@ resource "aws_ecs_service" "app" {
   desired_count   = var.desired_count
   launch_type     = length(var.capacity_provider_strategy) == 0 ? "FARGATE" : null
 
-  force_new_deployment = true
+  # force_new_deployment = true
 
   dynamic "capacity_provider_strategy" {
     for_each = var.capacity_provider_strategy

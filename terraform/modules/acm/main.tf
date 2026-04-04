@@ -7,12 +7,9 @@ resource "aws_acm_certificate" "alb" {
   subject_alternative_names = ["demo.${var.domain_name}"]
   validation_method         = "DNS"
 
-  tags = {
-    Name        = "${var.project}-${var.environment}-alb-cert"
-    Environment = var.environment
-    Project     = var.project
-    ManagedBy   = "terraform"
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project}-${var.environment}-alb-cert"
+  })
 
   lifecycle {
     create_before_destroy = true

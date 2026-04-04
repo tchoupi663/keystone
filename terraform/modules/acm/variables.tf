@@ -9,9 +9,32 @@ variable "environment" {
 }
 
 variable "project" {
-  description = "Project name for tagging and resource identification"
+  description = "Project name"
   type        = string
-  default     = "keystone"
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+locals {
+  common_tags = merge(
+    {
+      Environment = var.environment
+      Project     = var.project
+      Region      = var.region
+      ManagedBy   = "terraform"
+      Module      = "acm"
+    },
+    var.tags
+  )
 }
 
 variable "validation_record_fqdns" {

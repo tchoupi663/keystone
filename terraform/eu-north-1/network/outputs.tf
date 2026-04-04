@@ -1,11 +1,11 @@
 output "tunnel_id" {
   description = "ID of the dev Cloudflare Tunnel"
-  value       = module.cloudflare.tunnel_id
+  value       = module.cloudflare_tunnel.tunnel_id
 }
 
 output "tunnel_cname" {
   description = "CNAME target for the tunnel used by DNS records"
-  value       = module.cloudflare.tunnel_cname
+  value       = module.cloudflare_tunnel.tunnel_cname
 }
 
 output "zone_id" {
@@ -22,5 +22,5 @@ output "account_id" {
 
 output "tunnel_token_secret_arn" {
   description = "ARN of the AWS Secret containing the Cloudflare Tunnel token"
-  value       = module.cloudflare.tunnel_token_secret_arn
+  value       = module.cloudflare_tunnel.tunnel_token_secret_arn
 }

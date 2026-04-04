@@ -35,6 +35,7 @@ locals {
     {
       Environment = var.environment
       Project     = var.project
+      Region      = var.region
       ManagedBy   = "terraform"
       Module      = "alb"
     },

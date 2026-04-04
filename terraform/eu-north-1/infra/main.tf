@@ -4,21 +4,10 @@ module "security" {
 
   environment = var.environment
   project     = var.project
+  region      = var.region
 }
 
 data "aws_caller_identity" "current" {}
-
-data "aws_secretsmanager_secret_version" "flow_logs_token" {
-  secret_id = "${var.project}/${var.environment}/flow-logs-token"
-}
-
-data "aws_ssm_parameter" "grafana_loki_host" {
-  name = "/${var.project}/${var.environment}/grafana/loki/host"
-}
-
-data "aws_ssm_parameter" "grafana_loki_user" {
-  name = "/${var.project}/${var.environment}/grafana/loki/user"
-}
 
 module "vpc" {
   source = "../../modules/vpc"
@@ -54,12 +43,21 @@ module "vpc" {
   enable_s3_endpoint = var.enable_s3_endpoint
 
   interface_endpoint_services = var.interface_endpoint_services
+}
 
-  # VPC Flow Logs -> Grafana Loki
+module "vpc_flow_logs" {
+  source = "../../modules/vpc-flow-logs"
+
+  project     = var.project
+  environment = var.environment
+  vpc_id      = module.vpc.vpc_id
+
   enable_flow_logs    = var.enable_flow_logs
   flow_logs_loki_host = data.aws_ssm_parameter.grafana_loki_host.value
   flow_logs_loki_user = data.aws_ssm_parameter.grafana_loki_user.value
   flow_logs_token     = data.aws_secretsmanager_secret_version.flow_logs_token.secret_string
+
+  tags = var.tags
 }
 
 module "ecs_cluster" {
@@ -67,6 +65,7 @@ module "ecs_cluster" {
 
   environment = var.environment
   project     = var.project
+  region      = var.region
 
   vpc_id         = module.vpc.vpc_id
   vpc_cidr_block = var.cidr_block

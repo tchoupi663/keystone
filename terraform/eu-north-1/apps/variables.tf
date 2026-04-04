@@ -37,14 +37,14 @@ variable "container_port" {
 
 variable "task_cpu" {
   description = "CPU units for the Fargate task"
-  type        = string
-  default     = "256"
+  type        = number
+  default     = 256
 }
 
 variable "task_memory" {
   description = "Memory (MiB) for the Fargate task"
-  type        = string
-  default     = "512"
+  type        = number
+  default     = 512
 }
 
 variable "desired_count" {

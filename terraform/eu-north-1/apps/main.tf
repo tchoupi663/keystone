@@ -1,25 +1,25 @@
 data "terraform_remote_state" "infra" {
   backend = "s3"
   config = {
-    bucket = "keystone-infra-terraform-state"
+    bucket = var.terraform_state_bucket
     key    = "infra/eu-north-1/infra.tfstate"
     region = "eu-north-1"
   }
 }
 
-data "terraform_remote_state" "data" {
-  backend = "s3"
-  config = {
-    bucket = "keystone-infra-terraform-state"
-    key    = "data/eu-north-1/rds/data.tfstate"
-    region = "eu-north-1"
-  }
-}
+# data "terraform_remote_state" "data" {
+#   backend = "s3"
+#   config = {
+#     bucket = var.terraform_state_bucket
+#     key    = "data/eu-north-1/rds/data.tfstate"
+#     region = "eu-north-1"
+#   }
+# }
 
 data "terraform_remote_state" "network" {
   backend = "s3"
   config = {
-    bucket = "keystone-infra-terraform-state"
+    bucket = var.terraform_state_bucket
     key    = "network/eu-north-1/network.tfstate"
     region = "eu-north-1"
   }
@@ -27,34 +27,6 @@ data "terraform_remote_state" "network" {
 
 data "aws_secretsmanager_secret" "github-token" {
   name = "${var.project}/${var.environment}/github-token"
-}
-
-data "aws_secretsmanager_secret" "grafana_loki_api_key" {
-  name = "${var.project}/${var.environment}/grafana-loki-api-key"
-}
-
-data "aws_ssm_parameter" "grafana_loki_host" {
-  name = "/${var.project}/${var.environment}/grafana/loki/host"
-}
-
-data "aws_ssm_parameter" "grafana_loki_user" {
-  name = "/${var.project}/${var.environment}/grafana/loki/user"
-}
-
-data "aws_ssm_parameter" "grafana_prometheus_url" {
-  name = "/${var.project}/${var.environment}/grafana/prometheus/url"
-}
-
-data "aws_ssm_parameter" "grafana_prometheus_user" {
-  name = "/${var.project}/${var.environment}/grafana/prometheus/user"
-}
-
-data "aws_ssm_parameter" "grafana_tempo_endpoint" {
-  name = "/${var.project}/${var.environment}/grafana/tempo/endpoint"
-}
-
-data "aws_ssm_parameter" "grafana_tempo_user" {
-  name = "/${var.project}/${var.environment}/grafana/tempo/user"
 }
 
 module "apps" {

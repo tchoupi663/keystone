@@ -19,8 +19,8 @@ image_tag            = "app-1.0.31"
 
 # Service configuration
 container_port         = 8080
-task_cpu               = "128"
-task_memory            = "256"
+task_cpu               = "256"
+task_memory            = "512"
 desired_count          = 1
 enable_execute_command = false
 log_retention_days     = 14

@@ -26,21 +26,6 @@ variable "environment" {
   }
 }
 
-
-locals {
-  common_tags = merge(
-    {
-      Environment = var.environment
-      Region      = var.region
-      Project     = var.project
-      ManagedBy   = "terraform"
-      Module      = "vpc"
-    },
-    var.tags
-  )
-}
-
-
 variable "cidr_block" {
   description = "CIDR block for the VPC (e.g., 10.0.0.0/16)"
   type        = string
@@ -185,31 +170,3 @@ variable "interface_endpoint_services" {
   # Example for ECS: ["ecr.api", "ecr.dkr", "ecs", "ecs-agent", "ecs-telemetry", "logs"]
 }
 
-# ──────────────────────────────────────────────
-# VPC Flow Logs
-# ──────────────────────────────────────────────
-
-variable "enable_flow_logs" {
-  description = "Enable VPC Flow Logs"
-  type        = bool
-  default     = false
-}
-
-variable "flow_logs_loki_host" {
-  description = "Grafana Cloud Loki host for Firehose (needed if enable_flow_logs is true)"
-  type        = string
-  default     = ""
-}
-
-variable "flow_logs_loki_user" {
-  description = "Grafana user ID (needed if enable_flow_logs is true)"
-  type        = string
-  default     = ""
-}
-
-variable "flow_logs_token" {
-  description = "Grafana AWS token for Loki (needed if enable_flow_logs is true)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
