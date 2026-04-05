@@ -15,7 +15,7 @@ capacity_provider_strategy = [
 ]
 
 app_image_repository = "ghcr.io/tchoupi663/keystone"
-image_tag            = "app-1.0.31"
+image_tag            = "app-1.1.0"
 
 # Service configuration
 container_port         = 8080
@@ -37,7 +37,7 @@ health_check_timeout      = 5
 health_check_retries      = 3
 health_check_start_period = 60
 
-scale_down_cron         = "0 23 * * ? *"
+scale_down_cron         = "0 21 * * ? *"
 scale_up_cron           = "0 5 * * ? *"
 scale_down_min_capacity = 0
 scale_down_max_capacity = 0
