@@ -23,7 +23,7 @@
 
     generate "tfvars" {
       path              = "terragrunt.auto.tfvars"
-      if_exists         = "overwrite_terragrunt"
+      if_exists         = "overwrite"
       disable_signature = true
       contents          = <<-EOT
 ${file(find_in_parent_folders("tfvars/${local.workspace}.tfvars"))}
