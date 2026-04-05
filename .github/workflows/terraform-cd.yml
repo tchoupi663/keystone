@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/**
     paths:
       - 'terraform/**'
 
@@ -31,6 +32,7 @@ jobs:
       - name: Check if any stacks changed
         id: check
         run: |
+          terramate generate
           CHANGED=$(terramate list --changed)
           if [ -n "$CHANGED" ]; then
             echo "any_changed=true" >> "$GITHUB_OUTPUT"
@@ -75,6 +77,7 @@ jobs:
 
       - name: Terramate Run Plan
         run: |
+          terramate generate
           terramate run --changed -- \
             terragrunt init -reconfigure && \
             terragrunt plan -out=tfplan.binary
@@ -113,6 +116,7 @@ jobs:
 
       - name: Terramate Run Apply
         run: |
+          terramate generate
           terramate run --changed -- \
             terragrunt init -reconfigure && \
             terragrunt apply -auto-approve
