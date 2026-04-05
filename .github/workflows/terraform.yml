@@ -1,0 +1,190 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - feat/**
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  detect:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      envs: ${{ steps.set-envs.outputs.envs }}
+      any_changed: ${{ steps.set-envs.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Terramate
+        uses: terramate-io/terramate-action@v3
+        with:
+          version: "0.9.0"
+
+      - name: Identify Affected Environments
+        id: set-envs
+        run: |
+          # 1. Determine comparison base
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            DIFF_BASE="origin/${{ github.base_ref }}"
+          else
+            DIFF_BASE="${{ github.event.before }}"
+            if [ "$DIFF_BASE" == "0000000000000000000000000000000000000000" ] || [ -z "$DIFF_BASE" ]; then
+              DIFF_BASE="HEAD~1"
+            fi
+          fi
+          
+          echo "Comparing against base: $DIFF_BASE"
+          
+          # 2. Get changed stacks from Terramate (native detection)
+          # Note: We use -B to specify the base for change detection
+          CHANGED_STACKS=$(terramate list --changed -B $DIFF_BASE --tags child --format json 2>/dev/null | jq -r '.[] | .name' | sort -u || true)
+          
+          # 3. Get changed environments from tfvars files (manual sibling detection)
+          CHANGED_TFVARS=$(git diff --name-only $DIFF_BASE ${{ github.sha }} | grep '\.tfvars$' || true)
+          CHANGED_ENVS_FROM_VARS=""
+          for f in $CHANGED_TFVARS; do
+            env_name=$(basename "$f" .tfvars)
+            CHANGED_ENVS_FROM_VARS="$CHANGED_ENVS_FROM_VARS $env_name"
+          done
+          
+          # 4. Combine and deduplicate
+          ALL_ENVS=$(echo "$CHANGED_STACKS $CHANGED_ENVS_FROM_VARS" | tr ' ' '\n' | sort -u | grep . || true)
+          
+          # 5. Format as JSON array and output
+          JSON_ENVS=$(echo "$ALL_ENVS" | jq -R . | jq -s -c .)
+          
+          echo "Affected envs: $ALL_ENVS"
+          echo "envs=$JSON_ENVS" >> "$GITHUB_OUTPUT"
+          
+          if [ "$JSON_ENVS" == "[]" ] || [ -z "$ALL_ENVS" ]; then
+            echo "any_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "any_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  plan:
+    name: "Plan: ${{ matrix.env }}"
+    needs: detect
+    if: needs.detect.outputs.any_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: ${{ fromJson(needs.detect.outputs.envs) }}
+    outputs:
+      # Pass through the change detection from plan job
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.10.0"
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        run: |
+          curl -sSL https://github.com/gruntwork-io/terragrunt/releases/download/v0.55.0/terragrunt_linux_amd64 \
+            -o /usr/local/bin/terragrunt
+          chmod +x /usr/local/bin/terragrunt
+
+      - name: Install Terramate
+        uses: terramate-io/terramate-action@v3
+        with:
+          version: "0.9.0"
+
+      - name: Terraform Plan
+        id: plan
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          terramate generate
+          
+          # Use a directory-based filter to process only stacks for the matrix environment
+          # This maintains Terramate's orchestration but limits the scope
+          terramate run --continue-on-error --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode; \
+              status=\$?; \
+              if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
+              if [ \$status -eq 1 ]; then exit 1; fi; \
+            fi"
+          
+          if [ -f /tmp/tf_changes ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  apply:
+    name: "Apply: ${{ matrix.env }}"
+    needs: [detect, plan]
+    # Only run apply on main branch if plan found changes
+    if: |
+      needs.detect.outputs.any_changed == 'true' &&
+      needs.plan.outputs.has_changes == 'true' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: ${{ fromJson(needs.detect.outputs.envs) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.10.0"
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        run: |
+          curl -sSL https://github.com/gruntwork-io/terragrunt/releases/download/v0.55.0/terragrunt_linux_amd64 \
+            -o /usr/local/bin/terragrunt
+          chmod +x /usr/local/bin/terragrunt
+
+      - name: Install Terramate
+        uses: terramate-io/terramate-action@v3
+        with:
+          version: "0.9.0"
+
+      - name: Terramate Run Apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          terramate generate
+          terramate run --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt init -reconfigure && terragrunt apply -auto-approve; \
+            fi"
