@@ -120,10 +120,15 @@ jobs:
         run: |
           terramate generate
           
-          # Run plan specifically for the matrix environment
-          # We check if there are REAL changes needing apply
-          terramate run --continue-on-error --name "${{ matrix.env }}" -- \
-            bash -c "terragrunt init -reconfigure && terragrunt plan -detailed-exitcode; status=\$?; if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; if [ \$status -eq 1 ]; then exit 1; fi"
+          # Use a directory-based filter to process only stacks for the matrix environment
+          # This maintains Terramate's orchestration but limits the scope
+          terramate run --continue-on-error --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode; \
+              status=\$?; \
+              if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
+              if [ \$status -eq 1 ]; then exit 1; fi; \
+            fi"
           
           if [ -f /tmp/tf_changes ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -175,6 +180,7 @@ jobs:
       - name: Terramate Run Apply
         run: |
           terramate generate
-          terramate run --name "${{ matrix.env }}" -- \
-            terragrunt init -reconfigure && \
-            terragrunt apply -auto-approve
+          terramate run --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt init -reconfigure && terragrunt apply -auto-approve; \
+            fi"
