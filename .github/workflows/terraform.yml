@@ -126,7 +126,7 @@ jobs:
           # This maintains Terramate's orchestration but limits the scope
           terramate run --continue-on-error --tags child -- \
             bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
-              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode; \
+              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false; \
               status=\$?; \
               if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
               if [ \$status -eq 1 ]; then exit 1; fi; \
