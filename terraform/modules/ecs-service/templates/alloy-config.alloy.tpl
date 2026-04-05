@@ -13,9 +13,9 @@ prometheus.scrape "flask_app" {
 
 prometheus.remote_write "grafana_cloud" {
   endpoint {
-    url = "${grafana_prometheus_url}"
+    url = coalesce(sys.env("GRAFANA_PROM_URL"), "missing")
     basic_auth {
-      username = "${grafana_prometheus_user}"
+      username = coalesce(sys.env("GRAFANA_PROM_USER"), "missing")
       password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
     }
     
@@ -58,9 +58,9 @@ otelcol.processor.transform "add_peer_service" {
 
 loki.write "grafanacloud" {
   endpoint {
-    url = "https://${grafana_loki_host}/loki/api/v1/push"
+    url = "https://" + coalesce(sys.env("GRAFANA_LOKI_HOST"), "missing") + "/loki/api/v1/push"
     basic_auth {
-      username = "${grafana_loki_user}"
+      username = coalesce(sys.env("GRAFANA_LOKI_USER"), "missing")
       password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
     }
   }
@@ -88,12 +88,12 @@ otelcol.exporter.prometheus "servicegraphs" {
 
 otelcol.exporter.otlp "grafanacloud" {
   client {
-    endpoint = "${grafana_tempo_endpoint}"
+    endpoint = coalesce(sys.env("GRAFANA_TEMPO_ENDPOINT"), "missing")
     auth     = otelcol.auth.basic.grafanacloud.handler
   }
 }
 
 otelcol.auth.basic "grafanacloud" {
-  username = "${grafana_tempo_user}"
+  username = coalesce(sys.env("GRAFANA_TEMPO_USER"), "missing")
   password = coalesce(sys.env("GRAFANA_API_KEY"), "missing")
 }

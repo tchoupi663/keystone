@@ -16,6 +16,9 @@ locals {
     "172.64.0.0/13",
     "131.0.72.0/22"
   ]
+
+  # AWS VPC DNS Resolver is at the base CIDR + 2
+  vpc_dns_resolver = "${cidrhost(var.vpc_cidr_block, 2)}/32"
 }
 
 
@@ -98,7 +101,7 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 53
     to_port     = 53
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [local.vpc_dns_resolver]
   }
 
   egress {
@@ -106,7 +109,7 @@ resource "aws_security_group" "ecs_tasks" {
     from_port   = 53
     to_port     = 53
     protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [local.vpc_dns_resolver]
   }
 
   egress {

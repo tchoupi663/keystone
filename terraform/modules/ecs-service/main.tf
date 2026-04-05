@@ -2,14 +2,8 @@ locals {
   container_name = "${var.project}-${var.environment}-app"
 
   alloy_config_b64 = base64encode(templatefile("${path.module}/templates/alloy-config.alloy.tpl", {
-    container_port          = var.container_port
-    environment             = var.environment
-    grafana_prometheus_url  = var.grafana_prometheus_url
-    grafana_prometheus_user = var.grafana_prometheus_user
-    grafana_loki_host       = var.grafana_loki_host
-    grafana_loki_user       = var.grafana_loki_user
-    grafana_tempo_endpoint  = var.grafana_tempo_endpoint
-    grafana_tempo_user      = var.grafana_tempo_user
+    container_port = var.container_port
+    environment    = var.environment
   }))
 }
 
@@ -95,6 +89,19 @@ resource "aws_iam_role_policy" "ecs_execution" {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
         Resource = [var.cloudflare_tunnel_token_secret_arn]
+      },
+      {
+        Sid    = "GrafanaSSM"
+        Effect = "Allow"
+        Action = ["ssm:GetParameters"]
+        Resource = [
+          var.grafana_loki_host_ssm_arn,
+          var.grafana_loki_user_ssm_arn,
+          var.grafana_prometheus_url_ssm_arn,
+          var.grafana_prometheus_user_ssm_arn,
+          var.grafana_tempo_endpoint_ssm_arn,
+          var.grafana_tempo_user_ssm_arn
+        ]
       }
     ]
   })
@@ -251,6 +258,30 @@ resource "aws_ecs_task_definition" "app" {
         {
           name      = "GRAFANA_API_KEY"
           valueFrom = var.grafana_loki_api_key_secret_arn
+        },
+        {
+          name      = "GRAFANA_LOKI_HOST"
+          valueFrom = var.grafana_loki_host_ssm_arn
+        },
+        {
+          name      = "GRAFANA_LOKI_USER"
+          valueFrom = var.grafana_loki_user_ssm_arn
+        },
+        {
+          name      = "GRAFANA_PROM_URL"
+          valueFrom = var.grafana_prometheus_url_ssm_arn
+        },
+        {
+          name      = "GRAFANA_PROM_USER"
+          valueFrom = var.grafana_prometheus_user_ssm_arn
+        },
+        {
+          name      = "GRAFANA_TEMPO_ENDPOINT"
+          valueFrom = var.grafana_tempo_endpoint_ssm_arn
+        },
+        {
+          name      = "GRAFANA_TEMPO_USER"
+          valueFrom = var.grafana_tempo_user_ssm_arn
         }
       ]
 
@@ -303,7 +334,7 @@ resource "aws_ecs_task_definition" "app" {
       name      = local.container_name
       image     = var.app_image
       essential = true
-      
+
       # Guaranteed memory for the app (Task Total - sidecars 128x2)
       memoryReservation = tonumber(var.task_memory) - 256
 

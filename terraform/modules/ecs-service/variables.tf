@@ -294,13 +294,13 @@ variable "cloudflared_image_version" {
 
 # ── ADDED ─────────────────────────────────────────────────────────
 
-variable "grafana_loki_host" {
-  description = "Grafana Cloud Loki host (e.g. logs-prod-eu-west-0.grafana.net). Found in Grafana Cloud → Connections → Loki → Connection details."
+variable "grafana_loki_host_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Loki host."
   type        = string
 }
 
-variable "grafana_loki_user" {
-  description = "Grafana Cloud Loki numeric user ID (shown as 'User' in the Loki connection details page)."
+variable "grafana_loki_user_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Loki numeric user ID."
   type        = string
 }
 
@@ -309,23 +309,23 @@ variable "grafana_loki_api_key_secret_arn" {
   type        = string
 }
 
-variable "grafana_prometheus_url" {
-  description = "Grafana Cloud Prometheus remote-write URL"
+variable "grafana_prometheus_url_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Prometheus remote-write URL."
   type        = string
 }
 
-variable "grafana_prometheus_user" {
-  description = "Grafana Cloud Prometheus numeric user ID."
+variable "grafana_prometheus_user_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Prometheus numeric user ID."
   type        = string
 }
 
-variable "grafana_tempo_endpoint" {
-  description = "Grafana Cloud Tempo remote-write URL"
+variable "grafana_tempo_endpoint_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Tempo remote-write URL."
   type        = string
 }
 
-variable "grafana_tempo_user" {
-  description = "Grafana Cloud Tempo numeric user ID."
+variable "grafana_tempo_user_ssm_arn" {
+  description = "SSM ARN of the Grafana Cloud Tempo numeric user ID."
   type        = string
 }
 

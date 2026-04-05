@@ -63,27 +63,3 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-
-      - name: Update TFVars with new image tag
-        run: |
-          TFVARS_FILE="terraform/eu-north-1/apps/tfvars/dev.tfvars"
-          
-          # Ensure there's a newline at the end if we're appending
-          [ -n "$(tail -c 1 "$TFVARS_FILE")" ] && echo "" >> "$TFVARS_FILE"
-          
-          if grep -q "^image_tag" "$TFVARS_FILE"; then
-            sed -i "s/^image_tag.*/image_tag = \"${GITHUB_REF_NAME}\"/" "$TFVARS_FILE"
-          else
-            echo "image_tag = \"${GITHUB_REF_NAME}\"" >> "$TFVARS_FILE"
-          fi
-
-      - name: Create Pull Request with TFVars update
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
-          commit-message: "chore(dev): update app image tag to ${{ github.ref_name }}"
-          title: "Update app image tag to ${{ github.ref_name }}"
-          body: "This PR automatically updates `dev.tfvars` with the newly built Docker image tag (`${{ github.ref_name }}`)."
-          branch: "update-image-tag-${{ github.ref_name }}"
-          base: main
-# use builtkit

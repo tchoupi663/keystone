@@ -92,15 +92,15 @@ module "apps" {
   capacity_provider_strategy = var.capacity_provider_strategy
 
   # Grafana Loki
-  grafana_loki_host               = data.aws_ssm_parameter.grafana_loki_host.value
-  grafana_loki_user               = data.aws_ssm_parameter.grafana_loki_user.value
+  grafana_loki_host_ssm_arn       = data.aws_ssm_parameter.grafana_loki_host.arn
+  grafana_loki_user_ssm_arn       = data.aws_ssm_parameter.grafana_loki_user.arn
   grafana_loki_api_key_secret_arn = data.aws_secretsmanager_secret.grafana_loki_api_key.arn
 
   # Grafana Prometheus
-  grafana_prometheus_url  = data.aws_ssm_parameter.grafana_prometheus_url.value
-  grafana_prometheus_user = data.aws_ssm_parameter.grafana_prometheus_user.value
+  grafana_prometheus_url_ssm_arn  = data.aws_ssm_parameter.grafana_prometheus_url.arn
+  grafana_prometheus_user_ssm_arn = data.aws_ssm_parameter.grafana_prometheus_user.arn
 
   # Grafana Tempo
-  grafana_tempo_endpoint = data.aws_ssm_parameter.grafana_tempo_endpoint.value
-  grafana_tempo_user     = data.aws_ssm_parameter.grafana_tempo_user.value
+  grafana_tempo_endpoint_ssm_arn = data.aws_ssm_parameter.grafana_tempo_endpoint.arn
+  grafana_tempo_user_ssm_arn     = data.aws_ssm_parameter.grafana_tempo_user.arn
 }
