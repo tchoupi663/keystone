@@ -2,11 +2,8 @@ name: Build and Push Container
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'apps/src/**'
-      - '.github/workflows/container-build.yml'
+    tags:
+      - 'app-*'
   workflow_dispatch:
 
 env:
