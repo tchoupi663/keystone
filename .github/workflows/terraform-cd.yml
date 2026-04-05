@@ -33,7 +33,7 @@ jobs:
         id: check
         run: |
           terramate generate
-          CHANGED=$(terramate list --changed)
+          CHANGED=$(terramate list --changed --tags child)
           if [ -n "$CHANGED" ]; then
             echo "any_changed=true" >> "$GITHUB_OUTPUT"
             echo "Detected changes in stacks:"
@@ -78,7 +78,7 @@ jobs:
       - name: Terramate Run Plan
         run: |
           terramate generate
-          terramate run --changed -- \
+          terramate run --changed --tags child -- \
             terragrunt init -reconfigure && \
             terragrunt plan -out=tfplan.binary
 
@@ -117,6 +117,6 @@ jobs:
       - name: Terramate Run Apply
         run: |
           terramate generate
-          terramate run --changed -- \
+          terramate run --changed --tags child -- \
             terragrunt init -reconfigure && \
             terragrunt apply -auto-approve
