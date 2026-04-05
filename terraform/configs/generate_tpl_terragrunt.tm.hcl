@@ -25,15 +25,13 @@ generate_file "_tpl_terragrunt.hcl" {
     }
 
     generate "tfvars" {
-      path              = "terragrunt.auto.tfvars.json"
+      path              = "terragrunt.auto.tfvars"
       if_exists         = "overwrite_terragrunt"
       disable_signature = true
-      contents          = jsonencode(merge(
-        jsondecode(read_tfvars_file(find_in_parent_folders("tfvars/$${local.workspace}.tfvars"))),
-        {
-          component = local.app_name
-        }
-      ))
+      contents          = <<-EOT
+$${file(find_in_parent_folders("tfvars/$${local.workspace}.tfvars"))}
+component = "$${local.app_name}"
+EOT
     }
     EOF
 }
