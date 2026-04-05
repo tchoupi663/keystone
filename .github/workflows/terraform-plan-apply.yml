@@ -115,18 +115,37 @@ jobs:
         with:
           version: "0.9.0"
 
-      - name: Terraform Plan
-        id: plan
+      - name: Terraform Init
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terramate generate
           
-          # Use a directory-based filter to process only stacks for the matrix environment
-          # This maintains Terramate's orchestration but limits the scope
+          # Initialize all affected stacks sequentially to prepare for validate/plan
+          terramate run --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt init -reconfigure; \
+            fi"
+
+      - name: Terraform Validate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # Validation does not need to reinitialize
+          terramate run --tags child -- \
+            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
+              terragrunt validate; \
+            fi"
+
+      - name: Terraform Plan
+        id: plan
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # Plan does not need to reinitialize
           terramate run --continue-on-error --tags child -- \
             bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
-              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false; \
+              terragrunt plan -detailed-exitcode -lock=false; \
               status=\$?; \
               if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
               if [ \$status -eq 1 ]; then exit 1; fi; \
