@@ -22,7 +22,7 @@ terraform {
 }
 
 inputs = merge(
-  jsondecode(read_tfvars_file("${path_relative_from_include()}/tfvars/${local.workspace}.tfvars")),
+  jsondecode(read_tfvars_file(find_in_parent_folders("tfvars/${local.workspace}.tfvars"))),
   {
     component = local.app_name
   }
