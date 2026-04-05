@@ -35,7 +35,7 @@ enable_scheduled_scaling = true
 health_check_interval     = 30
 health_check_timeout      = 5
 health_check_retries      = 3
-health_check_start_period = 45
+health_check_start_period = 30
 
 scale_down_cron         = "0 23 * * ? *"
 scale_up_cron           = "0 5 * * ? *"
