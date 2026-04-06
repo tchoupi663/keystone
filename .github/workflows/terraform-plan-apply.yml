@@ -130,7 +130,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terramate generate
-          terramate run --tags ${{ matrix.env }} -- terragrunt init -reconfigure && terragrunt validate
+          terramate run --tags ${{ matrix.env }} -- bash -c "terragrunt init -reconfigure && terragrunt validate"
 
       - name: Terraform Plan
         id: plan
@@ -140,11 +140,12 @@ jobs:
           terramate generate
           
           # Native environment filtering via tags
-          terramate run --continue-on-error --tags ${{ matrix.env }} -- \
-            bash -c "terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false; \
-              status=\$?; \
-              if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
-              if [ \$status -eq 1 ]; then exit 1; fi"
+          terramate run --continue-on-error --tags ${{ matrix.env }} -- bash -c '
+            terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false
+            status=$?
+            if [ $status -eq 2 ]; then echo "found" >> /tmp/tf_changes; fi
+            if [ $status -eq 1 ]; then exit 1; fi
+          '
           
           if [ -f /tmp/tf_changes ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -198,4 +199,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terramate generate
-          terramate run --tags ${{ matrix.env }} -- terragrunt init -reconfigure && terragrunt apply -auto-approve
+          terramate run --tags ${{ matrix.env }} -- bash -c "terragrunt init -reconfigure && terragrunt apply -auto-approve"
