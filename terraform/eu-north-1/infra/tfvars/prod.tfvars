@@ -23,23 +23,3 @@ enable_flow_logs             = true
 
 # ECS Configuration
 enable_container_insights = true
-
-# ALB Configuration
-alb_internal                   = false
-alb_enable_deletion_protection = false
-alb_idle_timeout               = 60
-alb_drop_invalid_header_fields = true
-alb_enable_http2               = true
-alb_ssl_policy                 = "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09"
-alb_target_group_port          = 80
-alb_target_group_protocol      = "HTTP"
-alb_target_type                = "ip"
-alb_deregistration_delay       = 30
-alb_health_check               = {}
-alb_enable_access_logs         = true
-alb_access_logs_bucket         = ""
-alb_access_logs_prefix         = "alb-logs"
-alb_ingress_cidr_blocks        = ["0.0.0.0/0"]
-
-# ACM Configuration
-acm_validation_record_fqdns = []

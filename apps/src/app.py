@@ -1,7 +1,6 @@
 from flask import Flask, render_template, jsonify
 from prometheus_flask_exporter import PrometheusMetrics
 import os
-import psycopg
 import logging
 import signal
 import sys
@@ -19,7 +18,6 @@ from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
 
 # Initialize Tracing Provider
 resource = Resource.create({"service.name": "keystone-app"})
@@ -49,9 +47,8 @@ logging.getLogger("gunicorn.access").addHandler(otel_handler)
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
-# Instrument Flask & DB
+# Instrument Flask
 FlaskInstrumentor().instrument_app(app)
-PsycopgInstrumentor().instrument()
 
 metrics = PrometheusMetrics(app, group_by='endpoint')
 
@@ -59,15 +56,7 @@ metrics = PrometheusMetrics(app, group_by='endpoint')
 metrics.info('app_info', 'Application info', version='1.0.17')
 
 
-def get_db_connection():
-    conn = psycopg.connect(
-        host=os.environ.get('DB_HOST', 'localhost'),
-        port=int(os.environ.get('DB_PORT', '5432')),
-        dbname=os.environ.get('DB_NAME', 'postgres'),
-        user=os.environ.get('DB_USER', 'postgres'),
-        password=os.environ.get('DB_PASSWORD', 'secret')
-    )
-    return conn
+
 
 # ──────────────────────────────────────────────
 # Routes
@@ -85,14 +74,7 @@ def architecture():
 def health():
     """Health check endpoint used by ALB and monitoring."""
     logging.info("Health check heartbeat")
-    try:
-        conn = get_db_connection()
-        conn.close()
-        db_ok = True
-    except Exception as e:
-        logging.error(f"Database connection failed during health check: {e}")
-        db_ok = False
-    return jsonify({"status": "ok", "db": "ok" if db_ok else "unavailable"}), 200
+    return jsonify({"status": "ok"}), 200
 
 
 

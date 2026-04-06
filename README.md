@@ -17,6 +17,9 @@
 
 On top of being a boilerplate template, this repository stands as a comprehensive demonstration of modern architectural patterns. It illustrates how to deploy a containerized Python (Flask) web application on Amazon ECS Fargate while maintaining strict security perimeters and driving down enterprise cloud costs through clever engineering choices.
 
+#### For the archictecture diagram, visit the demo page! 
+[http://demo.edenkeystone.com](http://demo.edenkeystone.com)
+
 ## Architectural Showcase & Design Decisions
 
 This project embodies several major design philosophies to achieve enterprise-grade security without exorbitant cloud bills:

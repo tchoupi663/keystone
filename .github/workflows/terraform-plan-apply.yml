@@ -6,12 +6,16 @@ on:
       - main
       - feat/**
     paths:
-      - 'terraform/**'
+      - 'terraform/**/*.tf'
+      - 'terraform/**/*.tfvars'
+      - 'terraform/**/*.hcl'
   pull_request:
     branches:
       - main
     paths:
-      - 'terraform/**'
+      - 'terraform/**/*.tf'
+      - 'terraform/**/*.tfvars'
+      - 'terraform/**/*.hcl'
 
 permissions:
   id-token: write

@@ -58,3 +58,5 @@ schema.json
 requirements.txt
 temp_script.sh
 import_script.sh
+
+.terraform-docs.yml
