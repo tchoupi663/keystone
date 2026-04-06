@@ -115,9 +115,21 @@ Infrastructure deployment is meticulously separated into 5 independent layers to
 
 The `.github/workflows/terraform-plan-apply.yml` automatically dictates this sequencing during CI runs, but manual execution targets the tags:
 
+First, generate the terramate stacks and common files:
 ```bash
-terramate run --tags $env$ -- terragrunt init
-terramate run --tags $env$ -- terragrunt apply -auto-approve
+terramate generate
+```
+
+Then, to deploy a full environment (e.g., production env):
+```bash
+terramate run --tags prod -- terragrunt init
+terramate run --tags prod -- terragrunt apply
+```
+
+Or, to deploy only one layer (e.g., apps layer) for a given environment (e.g., prod):
+```bash
+terramate run --tags apps-prod -- terragrunt init
+terramate run --tags apps-prod -- terragrunt apply 
 ```
 
 ---
