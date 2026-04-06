@@ -38,6 +38,16 @@ Every metric, trace, and log pushes out to **Grafana Cloud**:
 *   **OpenTelemetry & Grafana Alloy:** The Flask application is instrumented to export telemetry. A lightweight, standalone **Grafana Alloy** sidecar within the ECS task collects and securely pushes these traces/metrics to Grafana Prometheus and Tempo.
 *   **Direct VPC Flow Logs:** Kinesis Data Firehose ingests AWS VPC Flow Logs and streams them directly into Grafana Loki, delivering granular network observability without requiring intermediary logging endpoints.
 
+---
+
+## Observability Showcase
+
+Keystone provides a unified, glassmorphism-inspired Grafana dashboard for real-time monitoring of ECS Fargate tasks, application logs, and network traffic.
+
+![Grafana Dashboard](docs/images/grafana_dashboard.png)
+
+*(Note: The above screenshot demonstrates the unified observability experience, aggregating Loki logs, Prometheus metrics, and Tempo traces into a single pane of glass).*
+
 *(Note: While the repository structure contains an unused module layout for AWS RDS to preserve flexibility, the live showcase prioritizes strict cost management constraints and does not currently provision a cloud RDS instance).*
 
 ---
@@ -46,8 +56,8 @@ Every metric, trace, and log pushes out to **Grafana Cloud**:
 
 While the architectural setup takes precedence, the underlying technologies include:
 
-- **Application Layer**: Python 3.11+, Flask 3.1, PostgreSQL 16 (Local)
-- **Compute & Architecture**: Amazon ECS Fargate, EC2 (`fck-nat`)
+- **Application Layer**: Python 3.11+, Flask 3.1,(Local)
+- **Compute & Architecture**: Amazon ECS Fargate, EC2 for NAT instance
 - **Infrastructure as Code**: Terraform (~> 6.0 AWS), orchestrated by **Terramate** and **Terragrunt**
 - **Edge & Security**: Cloudflare (DNS, WAF, Rate Limiting, Zero Trust Tunnels)
 - **Observability**: Grafana Cloud (Loki, Prometheus, Tempo), Grafana Alloy, OpenTelemetry
@@ -102,33 +112,18 @@ Infrastructure deployment is meticulously separated into 5 independent layers to
 - Terramate & Terragrunt
 - Cloudflare & Grafana Cloud API Tokens pre-seeded in AWS Secrets Manager
 
-### The 5-Layer Sequence
 
 The `.github/workflows/terraform-plan-apply.yml` automatically dictates this sequencing during CI runs, but manual execution targets the tags:
 
 ```bash
-# 1. Network Layer (Cloudflare WAF, DNS, Tunnel configs & Secrets)
-terramate run --tags network -- terragrunt apply -auto-approve
-
-# 2. Infra Layer (VPC, EC2 fck-nat, ECS Cluster, Kinesis Firehose)
-terramate run --tags infra -- terragrunt apply -auto-approve
-
-# 3. Data Layer (Data definitions & unused RDS skeletons)
-terramate run --tags data -- terragrunt apply -auto-approve
-
-# 4. App Layer (ECS Fargate Web Service & sidecars)
-terramate run --tags apps -- terragrunt apply -auto-approve
-
-# 5. Observability (Grafana Dashboards as Code)
-terramate run --tags observability -- terragrunt apply -auto-approve
+terramate run --tags $env$ -- terragrunt init
+terramate run --tags $env$ -- terragrunt apply -auto-approve
 ```
 
 ---
 
-## Project Notes & Troubleshooting Reflections
+## Project Notes 
 
-Throughout building this showcase, a few focal nuances emerged:
-
-- **Interactive Architecture Map**: The local application hosts a D3.js architecture flow map on `/architecture`. If diagram nodes dynamically drift or overlap, clicking the **Revert Positions** button forces the graph back to strict predefined X/Y bounds.
-- **Validating Cost-Down Schedules**: Fargate's autoscaling (e.g., entirely scaling to zero at night) relies on `aws_appautoscaling_scheduled_action`. When missing from the AWS Console, ensure your `.tfvars` actively declare and apply endpoints passing through the custom `ecs-service` module.
+- **Interactive Architecture Map**: The local application hosts a D3.js architecture flow map on `/architecture`. .
+- **Validating Cost-Down Schedules**: Fargate's autoscaling (e.g., entirely scaling to zero at night) relies on `aws_appautoscaling_scheduled_action`.
 - **State Locks**: If `terragrunt apply` halts on state lock acquisition, it invariably means the CI/CD IAM runner profile lacks stringent lockfile write credentials.
