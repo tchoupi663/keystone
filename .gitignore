@@ -21,7 +21,6 @@ temp.txt
 *.tfstate
 *.tfstate.*
 
-*.png
 *.jpg
 *.jpeg
 
