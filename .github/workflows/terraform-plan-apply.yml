@@ -40,17 +40,18 @@ jobs:
           # 1. Determine comparison base
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             DIFF_BASE="origin/${{ github.base_ref }}"
+            TARGET_BRANCH="${{ github.base_ref }}"
           else
             DIFF_BASE="${{ github.event.before }}"
             if [ "$DIFF_BASE" == "0000000000000000000000000000000000000000" ] || [ -z "$DIFF_BASE" ]; then
               DIFF_BASE="HEAD~1"
             fi
+            TARGET_BRANCH="${{ github.ref_name }}"
           fi
           
-          echo "Comparing against base: $DIFF_BASE"
+          echo "Comparing against base: $DIFF_BASE | Target Branch: $TARGET_BRANCH"
           
           # 2. Get changed stacks from Terramate (native detection)
-          # Note: We use -B to specify the base for change detection
           CHANGED_STACKS=$(terramate list --changed -B $DIFF_BASE --tags child --format json 2>/dev/null | jq -r '.[] | .name' | sort -u || true)
           
           # 3. Get changed environments from tfvars files (manual sibling detection)
@@ -64,13 +65,22 @@ jobs:
           # 4. Combine and deduplicate
           ALL_ENVS=$(echo "$CHANGED_STACKS $CHANGED_ENVS_FROM_VARS" | tr ' ' '\n' | sort -u | grep . || true)
           
-          # 5. Format as JSON array and output
-          JSON_ENVS=$(echo "$ALL_ENVS" | jq -R . | jq -s -c .)
+          # 5. Branch-aware filtering
+          if [ "$TARGET_BRANCH" == "main" ]; then
+            echo "Filtering for PROD environments on main branch activity..."
+            FINAL_ENVS=$(echo "$ALL_ENVS" | grep 'prod' || true)
+          else
+            echo "Filtering for DEV environments on feature branch activity..."
+            FINAL_ENVS=$(echo "$ALL_ENVS" | grep 'dev' || true)
+          fi
           
-          echo "Affected envs: $ALL_ENVS"
+          # 6. Format as JSON array and output
+          JSON_ENVS=$(echo "$FINAL_ENVS" | jq -R . | jq -s -c .)
+          
+          echo "Affected envs: $FINAL_ENVS"
           echo "envs=$JSON_ENVS" >> "$GITHUB_OUTPUT"
           
-          if [ "$JSON_ENVS" == "[]" ] || [ -z "$ALL_ENVS" ]; then
+          if [ "$JSON_ENVS" == "[]" ] || [ -z "$FINAL_ENVS" ]; then
             echo "any_changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "any_changed=true" >> "$GITHUB_OUTPUT"
@@ -120,12 +130,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terramate generate
-          
-          # Use a directory-based filter to process only stacks for the matrix environment
-          terramate run --tags child -- \
-            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
-              terragrunt init -reconfigure && terragrunt validate; \
-            fi"
+          terramate run --tags ${{ matrix.env }} -- terragrunt init -reconfigure && terragrunt validate
 
       - name: Terraform Plan
         id: plan
@@ -134,15 +139,12 @@ jobs:
         run: |
           terramate generate
           
-          # Use a directory-based filter to process only stacks for the matrix environment
-          # This maintains Terramate's orchestration but limits the scope
-          terramate run --continue-on-error --tags child -- \
-            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
-              terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false; \
+          # Native environment filtering via tags
+          terramate run --continue-on-error --tags ${{ matrix.env }} -- \
+            bash -c "terragrunt init -reconfigure && terragrunt plan -detailed-exitcode -lock=false; \
               status=\$?; \
               if [ \$status -eq 2 ]; then echo 'found' >> /tmp/tf_changes; fi; \
-              if [ \$status -eq 1 ]; then exit 1; fi; \
-            fi"
+              if [ \$status -eq 1 ]; then exit 1; fi"
           
           if [ -f /tmp/tf_changes ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -196,7 +198,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terramate generate
-          terramate run --tags child -- \
-            bash -c "if [[ \$(pwd) == *\"envs/${{ matrix.env }}\"* ]]; then \
-              terragrunt init -reconfigure && terragrunt apply -auto-approve; \
-            fi"
+          terramate run --tags ${{ matrix.env }} -- terragrunt init -reconfigure && terragrunt apply -auto-approve

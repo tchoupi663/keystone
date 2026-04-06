@@ -222,21 +222,72 @@
 
         .nav-link {
             display: inline-block;
-            padding: 0.7rem 1.4rem;
-            color: #1a1a1a;
+            padding: 0.8rem 1.8rem;
+            color: #fff;
             text-decoration: none;
-            border: 1px solid #ddd;
             border-radius: 6px;
-            background-color: #fafafa;
+            background-color: #1a1a1a;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .nav-link:hover {
-            border-color: #1a1a1a;
-            background-color: #f0f0f0;
+            background-color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem 1.25rem;
+            }
+
+            .header-nav {
+                gap: 1.2rem;
+            }
+
+            .container {
+                padding: 2.5rem 1.5rem;
+                width: 92%;
+                border-top-width: 4px;
+            }
+
+            h1 {
+                font-size: 2.8rem;
+            }
+
+            .pronunciation {
+                font-size: 1.1rem;
+                margin-left: 0.8rem;
+            }
+
+            .part-of-speech {
+                font-size: 1.1rem;
+                margin-bottom: 1rem;
+            }
+
+            .definition-item {
+                font-size: 1.1rem;
+                margin-bottom: 1.4rem;
+            }
+
+            .example {
+                font-size: 1rem;
+                padding-left: 1.5rem;
+            }
+
+            .demo-notice {
+                padding: 1.2rem;
+                margin-top: 1.5rem;
+            }
+
+            .nav-wrapper {
+                margin-top: 1.5rem;
+                padding-top: 1.5rem;
+            }
         }
     </style>
 </head>
@@ -275,10 +326,11 @@
 
             <div class="demo-notice">
                 <h3>About This Project</h3>
-                <p>This website is a live demonstration for the <strong>Keystone</strong> GitHub repository. It
-                    showcases a containerized web application deployed on AWS ECS Fargate, fully provisioned
-                    via Terraform with a secure VPC architecture and a managed RDS database. It also features a CI/CD
-                    workflow using Github Actions</p>
+                <p>This website is a live demonstration of <strong>Keystone</strong>—a modular, cost-optimized AWS
+                    environment managed via Terraform. It features a containerized Flask application on ECS Fargate,
+                    secured with Cloudflare Tunnels for ingress, Github Packages for container registry and integrated
+                    with Grafana Cloud for advanced
+                    observability, all automated through a GitHub Actions CI/CD pipeline.</p>
             </div>
 
             <div class="nav-wrapper">

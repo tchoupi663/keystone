@@ -102,7 +102,9 @@
 
     #diagram-canvas {
       width: 100%;
-      height: 800px;
+      height: calc(100vh - 300px);
+      /* Dynamic height based on viewport */
+      min-height: 500px;
       display: block;
       cursor: grab;
     }
@@ -521,7 +523,7 @@
     const svg = d3.select("#diagram-canvas");
     const wrapper = document.getElementById("diagram-wrapper");
     let W = wrapper.clientWidth;
-    let H = 850;
+    let H = Math.max(500, window.innerHeight - 280); // Corresponds to CSS height
     svg.attr("width", W).attr("height", H);
 
     const root = svg.append("g").attr("class", "root");
@@ -915,9 +917,30 @@
        ═══════════════════════════════════════════════════════════════ */
     window.addEventListener("resize", () => {
       W = wrapper.clientWidth;
-      svg.attr("width", W);
+      H = Math.max(500, window.innerHeight - 280);
+      svg.attr("width", W).attr("height", H);
+
+      // Re-center simulation forces
       simulation.force("center", d3.forceCenter(W / 2, H / 2));
-      simulation.alpha(0.2).restart();
+      simulation.force("x").x(d => {
+        const cX = W / 2;
+        if (d.id === "user") return cX - 310;
+        if (d.id === "cloudflare") return cX - 230;
+        if (d.id === "tunnel") return cX - 150;
+        if (d.id === "grafana") return cX + 360;
+        if (d.id === "firehose") return cX + 120;
+        if (d.id === "alloy") return cX + 80;
+        if (d.id === "vpc") return cX + 20;
+        return cX;
+      });
+      simulation.force("y").y(d => {
+        const cY = H / 2;
+        if (d.id === "fcknat" || d.id === "s3" || d.id === "secrets") return cY - 160;
+        if (d.id === "rds") return cY + 160;
+        return cY;
+      });
+
+      simulation.alpha(0.15).restart();
     });
   </script>
 </body>
