@@ -6,7 +6,8 @@ terramate {
   config {
     disable_safeguards = [
       "git-uncommitted",
-      "git-untracked"
+      "git-untracked",
+      "git-out-of-sync"
     ]
     experiments = [
       "scripts"

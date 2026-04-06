@@ -42,29 +42,7 @@ variable "waf_custom_rules" {
     expression  = string
     description = optional(string, "")
   }))
-  default = [
-    {
-      action      = "block"
-      description = "Block /health endpoint"
-      enabled     = true
-      expression  = "(http.request.uri.path eq \"/health\")"
-      name        = "Block Health Endpoint"
-    },
-    {
-      action      = "block"
-      description = "Block main domain"
-      enabled     = false
-      expression  = "(http.host eq \"edenkeystone.com\")"
-      name        = "Block main domain"
-    },
-    {
-      action      = "block"
-      description = "Block common probes and scanners"
-      enabled     = true
-      expression  = "(http.request.uri.path contains \"/.env\") or (http.request.uri.path contains \"/.git\") or (http.request.uri.path contains \"/wp-\") or (http.request.uri.path contains \"/admin\") or (http.request.uri.path contains \"/config\") or (http.request.uri.path contains \"/setup\") or (http.request.uri.path contains \".php\") or (http.request.uri.path contains \"/login\")"
-      name        = "Block Probes and Scanners"
-    }
-  ]
+  default = []
 }
 
 variable "managed_transforms" {
