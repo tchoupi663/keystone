@@ -48,6 +48,9 @@ Keystone provides a unified, glassmorphism-inspired Grafana dashboard for real-t
 
 *(Note: The above screenshot demonstrates the unified observability experience, aggregating Loki logs, Prometheus metrics, and Tempo traces into a single pane of glass).*
 
+#### Check out the grafana dashboard snapshot!
+[https://edenkeystone.grafana.net/dashboard/snapshot/bo99vDr2Eyr3TOMBLDtpRbJGdPG6HXM8](Dashboard)
+
 *(Note: While the repository structure contains an unused module layout for AWS RDS to preserve flexibility, the live showcase prioritizes strict cost management constraints and does not currently provision a cloud RDS instance).*
 
 ---
