@@ -243,10 +243,19 @@
         @media (max-width: 768px) {
             .header {
                 padding: 1rem 1.25rem;
+                flex-direction: row;
+            }
+
+            .header-logo {
+                font-size: 0.95rem;
             }
 
             .header-nav {
-                gap: 1.2rem;
+                gap: 1rem;
+            }
+
+            .header-nav a {
+                font-size: 0.85rem;
             }
 
             .container {
@@ -327,10 +336,12 @@
             <div class="demo-notice">
                 <h3>About This Project</h3>
                 <p>This website is a live demonstration of <strong>Keystone</strong>—a modular, cost-optimized AWS
-                    environment managed via Terraform. It features a containerized Flask application on ECS Fargate,
-                    secured with Cloudflare Tunnels for ingress, Github Packages for container registry and integrated
-                    with Grafana Cloud for advanced
-                    observability, all automated through a GitHub Actions CI/CD pipeline.</p>
+                    environment managed via Terraform. It features a <strong> containerized Flask application on ECS
+                        Fargate </strong>,
+                    secured with <strong>Cloudflare Tunnels</strong> for ingress, <strong>Github Packages</strong> for
+                    container registry and integrated
+                    with <strong>Grafana Cloud</strong> for advanced
+                    observability, all automated through a <strong>GitHub Actions CI/CD pipeline</strong>.</p>
             </div>
 
             <div class="nav-wrapper">

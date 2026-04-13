@@ -291,6 +291,72 @@
     .footer a:hover {
       color: #000;
     }
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media (max-width: 600px) {
+      .header {
+        flex-direction: row;
+        padding: 0.8rem 1rem;
+      }
+      .header-logo {
+        font-size: 0.95rem;
+      }
+      .header-nav {
+        gap: 0.8rem;
+      }
+      .header-nav a {
+        font-size: 0.85rem;
+      }
+      .main-content {
+        padding: 1rem 0.5rem;
+      }
+      .page-title {
+        font-size: 1.3rem;
+        text-align: center;
+      }
+      .page-subtitle {
+        font-size: 0.8rem;
+        text-align: center;
+        margin-bottom: 1rem;
+      }
+      #diagram-canvas {
+        height: calc(100vh - 200px);
+        min-height: 350px;
+      }
+      .flow-controls {
+        top: 10px;
+        right: 10px;
+        padding: 2px;
+      }
+      .flow-btn {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+      }
+      .legend {
+        top: auto;
+        bottom: 10px;
+        left: 10px;
+        padding: 6px 8px;
+        font-size: 0.65rem;
+      }
+      .legend-title {
+        font-size: 0.7rem;
+        margin-bottom: 4px;
+      }
+      .legend-item {
+        margin-bottom: 2px;
+      }
+      .controls {
+        bottom: 10px;
+        right: 10px;
+        gap: 4px;
+      }
+      .ctrl-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+      }
+    }
   </style>
 </head>
 
@@ -528,7 +594,7 @@
     const svg = d3.select("#diagram-canvas");
     const wrapper = document.getElementById("diagram-wrapper");
     let W = wrapper.clientWidth;
-    let H = Math.max(500, window.innerHeight - 280); // Corresponds to CSS height
+    let H = Math.max(window.innerWidth < 600 ? 350 : 500, window.innerHeight - (window.innerWidth < 600 ? 200 : 280));
     svg.attr("width", W).attr("height", H);
 
     const root = svg.append("g").attr("class", "root");
@@ -979,7 +1045,7 @@
        ═══════════════════════════════════════════════════════════════ */
     window.addEventListener("resize", () => {
       W = wrapper.clientWidth;
-      H = Math.max(500, window.innerHeight - 280);
+      H = Math.max(window.innerWidth < 600 ? 350 : 500, window.innerHeight - (window.innerWidth < 600 ? 200 : 280));
       svg.attr("width", W).attr("height", H);
 
       // Re-center simulation forces
