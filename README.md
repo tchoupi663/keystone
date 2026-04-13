@@ -18,7 +18,7 @@
 On top of being a boilerplate template, this repository stands as a comprehensive demonstration of modern architectural patterns. It illustrates how to deploy a containerized Python (Flask) web application on Amazon ECS Fargate while maintaining strict security perimeters and driving down enterprise cloud costs through clever engineering choices.
 
 #### For the archictecture diagram, visit the demo page! 
-[http://demo.edenkeystone.com](http://demo.edenkeystone.com)
+[demo.edenkeystone.com](https://demo.edenkeystone.com)
 
 ## Architectural Showcase & Design Decisions
 
@@ -49,7 +49,7 @@ Keystone provides a unified, glassmorphism-inspired Grafana dashboard for real-t
 *(Note: The above screenshot demonstrates the unified observability experience, aggregating Loki logs, Prometheus metrics, and Tempo traces into a single pane of glass).*
 
 #### Check out the grafana dashboard snapshot!
-[https://edenkeystone.grafana.net/dashboard/snapshot/bo99vDr2Eyr3TOMBLDtpRbJGdPG6HXM8](Dashboard)
+[Dashboard](https://edenkeystone.grafana.net/dashboard/snapshot/bo99vDr2Eyr3TOMBLDtpRbJGdPG6HXM8)
 
 *(Note: While the repository structure contains an unused module layout for AWS RDS to preserve flexibility, the live showcase prioritizes strict cost management constraints and does not currently provision a cloud RDS instance).*
 
