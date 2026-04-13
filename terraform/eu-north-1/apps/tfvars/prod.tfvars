@@ -15,7 +15,7 @@ capacity_provider_strategy = [
 ]
 
 app_image_repository = "ghcr.io/tchoupi663/keystone"
-image_tag            = "app-1.1.1_1"
+image_tag            = "app-1.1.2"
 
 # Service configuration
 container_port         = 8080
